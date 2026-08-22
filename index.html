@@ -1,3 +1,4 @@
+HTML
 <!DOCTYPE html>
 <html lang="ar" dir="rtl">
 <head>
@@ -62,7 +63,7 @@
             </button>
             <div class="p-3 bg-amber-50 border border-amber-200 rounded-xl text-center">
               <p class="text-[11px] text-amber-800 font-semibold leading-relaxed">
-                🔒 تنبيه: سيتم ربط هذا الجوال بهويتك بقاعدة البيانات السحابية لمنع التحضير لمعلمات أخريات.
+                🔒 تنبيه: سيتم قفل هذا الجوال على هويتك بقاعدة البيانات السحابية لمنع التحضير لمعلمات أخريات.
               </p>
             </div>
           </div>
@@ -211,7 +212,7 @@
                     <th class="p-2.5">وقت الانصراف</th>
                     <th class="p-2.5">حالة الانصراف</th>
                     <th class="p-2.5">ساعات العمل</th>
-                    <th class="p-2.5 text-center no-print">إجراءات الجهاز</th>
+                    <th class="p-2.5 text-center no-print">إجراءات الوكيلة</th>
                   </tr>
                 </thead>
                 <tbody id="tblBody" class="divide-y divide-slate-200"></tbody>
@@ -295,14 +296,13 @@
   </div>
 
   <script>
-    // الرابط السحابي المعتمد
     const API_URL = "https://script.google.com/macros/s/AKfycbwo5ooAKgJr0iNsv2L65DaJe7WXuU8ILBxrWzw02FxXhjtlGZCrc-e1z5Zz2C_72FJ9eQ/exec";
 
     function getDeviceFingerprint() {
-      let dev = localStorage.getItem('DEVICE_UUID');
+      let dev = localStorage.getItem('DEV_LOCK_ID');
       if (!dev) {
-        dev = 'DEV-' + Math.random().toString(36).substring(2, 12) + '-' + Date.now();
-        localStorage.setItem('DEVICE_UUID', dev);
+        dev = 'D-' + Math.random().toString(36).substring(2, 11) + '-' + Date.now();
+        localStorage.setItem('DEV_LOCK_ID', dev);
       }
       return dev;
     }
@@ -311,28 +311,38 @@
     let isAdmin = false;
     let cachedList = [];
 
-    // محرك الاتصال الحديث الشامل الداعم لجميع متصفحات الهواتف
-    async function apiCall(params, callback) {
-      try {
-        const response = await fetch(API_URL, {
-          method: 'POST',
-          mode: 'cors',
-          headers: { 'Content-Type': 'text/plain;charset=utf-8' },
-          body: JSON.stringify(params)
-        });
-        const data = await response.json();
-        if (callback) callback(data);
-      } catch (err) {
-        // خطة بديلة عبر GET إذا تعذر الـ POST
-        try {
-          const query = new URLSearchParams(params).toString();
-          const getRes = await fetch(`${API_URL}?${query}`);
-          const data = await getRes.json();
-          if (callback) callback(data);
-        } catch (e) {
-          alert('تعذر الاتصال بقاعدة البيانات. الرجاء التأكد من اتصال الإنترنت.');
+    // محرك اتصال متقدم عبر JSONP ديناميكي متوافق 100% مع الجوالات
+    function apiCall(params, callback) {
+      const cbName = 'jsonp_res_' + Math.round(100000 * Math.random());
+      params.callback = cbName;
+      
+      const query = new URLSearchParams(params).toString();
+      const script = document.createElement('script');
+      script.src = `${API_URL}?${query}`;
+      
+      let timer = setTimeout(() => {
+        if (window[cbName]) {
+          delete window[cbName];
+          if (document.body.contains(script)) document.body.removeChild(script);
+          alert('تعذر استلام رد من السيرفر. تأكدي من إتاحة صلاحية Anyone في Apps Script.');
         }
-      }
+      }, 15000);
+
+      window[cbName] = function(data) {
+        clearTimeout(timer);
+        delete window[cbName];
+        if (document.body.contains(script)) document.body.removeChild(script);
+        if (callback) callback(data);
+      };
+
+      script.onerror = function() {
+        clearTimeout(timer);
+        delete window[cbName];
+        if (document.body.contains(script)) document.body.removeChild(script);
+        alert('خطأ في الاتصال بالخادم. يرجى التحقق من اتصال الإنترنت.');
+      };
+
+      document.body.appendChild(script);
     }
 
     function liveTime() {
@@ -409,7 +419,7 @@
       if (!curTeacher) return;
       const btn = type === 'CHECK_IN' ? document.getElementById('btnIn') : document.getElementById('btnOut');
       const oldTxt = btn.innerText;
-      btn.innerText = 'جاري الحفظ في الشيت...';
+      btn.innerText = 'جاري الحفظ بالسيرفر...';
       btn.disabled = true;
 
       apiCall({ action: 'record', id: curTeacher.nationalId, type: type, deviceId: getDeviceFingerprint() }, function(res) {
@@ -452,7 +462,7 @@
       const u = document.getElementById('logUser').value.trim();
       const p = document.getElementById('logPass').value.trim();
       const btn = document.getElementById('btnLogin');
-      btn.innerText = 'جاري الدخول...';
+      btn.innerText = 'جاري التحقق...';
       btn.disabled = true;
 
       apiCall({ action: 'login', user: u, pass: p }, function(res) {
@@ -506,7 +516,7 @@
         if (r.statusOut === 'انصراف مبكر') badgeOut = '<span class="px-2 py-0.5 bg-purple-100 text-purple-800 rounded font-bold">مبكر</span>';
 
         let deviceBtn = r.bound 
-          ? `<button onclick="adminUnbindTeacher('${r.id}', '${r.name}')" class="p-1 bg-amber-100 hover:bg-amber-200 text-amber-800 rounded text-[11px] font-bold">🔓 فك قفل الجهاز</button>`
+          ? `<button onclick="adminUnbindTeacher('${r.id}', '${r.name}')" class="p-1 bg-amber-100 hover:bg-amber-200 text-amber-900 rounded text-[11px] font-bold">🔓 فك ارتباط الجهاز</button>`
           : `<span class="text-[10px] text-slate-400 font-bold">غير مقيد</span>`;
 
         body.innerHTML += `
@@ -545,9 +555,10 @@
       renderTable(filtered);
     }
 
+    // فك الارتباط من طرف الوكيلة فقط
     function adminUnbindTeacher(id, name) {
-      if (confirm(`هل ترغبين بإلغاء ربط الجوال للمعلمة (${name}) للسماح لها بربط جهاز جديد؟`)) {
-        apiCall({ action: 'unbind', id: id }, function(res) {
+      if (confirm(`هل ترغبين بإلغاء قفل الجوال للمعلمة (${name}) فوراً؟\nسيتيح لها ذلك تسجيل الدخول من أي جهاز جديد.`)) {
+        apiCall({ action: 'adminUnbind', id: id }, function(res) {
           alert(res.message);
           loadDash();
         });
