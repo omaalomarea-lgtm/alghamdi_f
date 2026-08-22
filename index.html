@@ -62,7 +62,7 @@
             </button>
             <div class="p-3 bg-amber-50 border border-amber-200 rounded-xl text-center">
               <p class="text-[11px] text-amber-800 font-semibold leading-relaxed">
-                🔒 تنبيه: سيتم ربط هذا الجوال بهويتك لمنع تحضير معلمات أخريات من نفس الجهاز.
+                🔒 تنبيه: سيتم ربط هذا الجوال بهويتك بقاعدة البيانات السحابية لمنع التحضير لمعلمات أخريات.
               </p>
             </div>
           </div>
@@ -295,6 +295,7 @@
   </div>
 
   <script>
+    // الرابط السحابي المعتمد
     const API_URL = "https://script.google.com/macros/s/AKfycbwo5ooAKgJr0iNsv2L65DaJe7WXuU8ILBxrWzw02FxXhjtlGZCrc-e1z5Zz2C_72FJ9eQ/exec";
 
     function getDeviceFingerprint() {
@@ -310,37 +311,28 @@
     let isAdmin = false;
     let cachedList = [];
 
-    function apiCall(params, callback) {
-      const cbName = 'jsonp_cb_' + Math.round(100000 * Math.random());
-      params.callback = cbName;
-      
-      const query = new URLSearchParams(params).toString();
-      const script = document.createElement('script');
-      script.src = `${API_URL}?${query}`;
-      
-      let timeout = setTimeout(() => {
-        if (window[cbName]) {
-          delete window[cbName];
-          if (document.body.contains(script)) document.body.removeChild(script);
-          alert('تعذر استلام رد من الخادم السحابي.');
-        }
-      }, 15000);
-
-      window[cbName] = function(data) {
-        clearTimeout(timeout);
-        delete window[cbName];
-        if (document.body.contains(script)) document.body.removeChild(script);
+    // محرك الاتصال الحديث الشامل الداعم لجميع متصفحات الهواتف
+    async function apiCall(params, callback) {
+      try {
+        const response = await fetch(API_URL, {
+          method: 'POST',
+          mode: 'cors',
+          headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+          body: JSON.stringify(params)
+        });
+        const data = await response.json();
         if (callback) callback(data);
-      };
-
-      script.onerror = function() {
-        clearTimeout(timeout);
-        delete window[cbName];
-        if (document.body.contains(script)) document.body.removeChild(script);
-        alert('خطأ في الاتصال بالخادم. تأكدي من اتصال الإنترنت.');
-      };
-
-      document.body.appendChild(script);
+      } catch (err) {
+        // خطة بديلة عبر GET إذا تعذر الـ POST
+        try {
+          const query = new URLSearchParams(params).toString();
+          const getRes = await fetch(`${API_URL}?${query}`);
+          const data = await getRes.json();
+          if (callback) callback(data);
+        } catch (e) {
+          alert('تعذر الاتصال بقاعدة البيانات. الرجاء التأكد من اتصال الإنترنت.');
+        }
+      }
     }
 
     function liveTime() {
