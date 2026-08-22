@@ -241,7 +241,7 @@
       <div class="flex items-center gap-2 mx-auto md:mx-0">
         <span class="p-1.5 bg-teal-800/80 rounded-lg text-teal-300">💡</span>
         <p class="text-xs md:text-sm font-black tracking-wide text-teal-100">
-          هذا الموقع من ابتكار وتصميم وكيلة المدرسة الأستاذة: <span class="text-teal-300 underline underline-offset-4 font-black">فوزية عبدالله الغامدي</span>
+          هذا الموقع من ابتكار الوكيلة الأستاذة: <span class="text-teal-300 underline underline-offset-4 font-black">فوزية عبدالله الغامدي</span>
         </p>
       </div>
       <p class="text-[11px] text-teal-300/80 font-medium">جميع الحقوق محفوظة © 2026</p>
@@ -304,23 +304,48 @@
   </div>
 
   <script>
-    const API_URL = "https://script.google.com/macros/s/AKfycby8PS5uECjht6jN3-FOdCUTHlRN1g9aq0973OLgUkAaSJFhVuYONgk6CP1ZlxuhKqeGvA/exec";
+    // الرابط السحابي الجديد
+    const API_URL = "https://script.google.com/macros/s/AKfycbzH48DwfhxP5Ey4sXlLUBf54JZSn5j2NCCOC8FELlZ2NW3eALZP3Mf8JijKor2NTDZl3g/exec";
 
     let curTeacher = null;
     let isAdmin = false;
     let cachedList = [];
 
+    // دالة اتصال معالجة ومضمونة الاستجابة للجوال
     function apiCall(params, callback) {
       const cbName = 'jsonp_cb_' + Math.round(100000 * Math.random());
-      window[cbName] = function(data) {
-        delete window[cbName];
-        document.body.removeChild(script);
-        callback(data);
-      };
+      params.callback = cbName;
+      
       const query = new URLSearchParams(params).toString();
       const script = document.createElement('script');
-      script.src = `${API_URL}?${query}&callback=${cbName}`;
-      script.onerror = function() { alert('خطأ في الاتصال بالخادم.'); };
+      script.src = `${API_URL}?${query}`;
+      
+      let timeout = setTimeout(() => {
+        if (window[cbName]) {
+          delete window[cbName];
+          if (document.body.contains(script)) document.body.removeChild(script);
+          alert('تعذر استلام رد من الخادم. تأكدي من ضبط إذن الوصول إلى Anyone.');
+        }
+      }, 12000);
+
+      window[cbName] = function(data) {
+        clearTimeout(timeout);
+        delete window[cbName];
+        if (document.body.contains(script)) {
+          document.body.removeChild(script);
+        }
+        callback(data);
+      };
+
+      script.onerror = function() {
+        clearTimeout(timeout);
+        delete window[cbName];
+        if (document.body.contains(script)) {
+          document.body.removeChild(script);
+        }
+        alert('خطأ في الاتصال بالخادم. الرجاء التأكد من اتصال الإنترنت.');
+      };
+
       document.body.appendChild(script);
     }
 
