@@ -135,7 +135,6 @@
             <input type="date" id="qDate" onchange="loadDash()" class="px-3 py-2 border rounded-xl font-bold text-xs text-slate-700">
             <button onclick="loadDash()" class="px-3 py-2 bg-slate-100 hover:bg-slate-200 rounded-xl text-xs font-bold text-slate-700">🔄 اليومي</button>
             <button onclick="openModal('modalRangeReport')" class="px-3 py-2 bg-indigo-700 hover:bg-indigo-800 text-white rounded-xl text-xs font-bold">📅 تقرير بفترة</button>
-            <button onclick="openModal('modalTimes')" class="px-3 py-2 bg-slate-800 hover:bg-slate-900 text-white rounded-xl text-xs font-bold">⚙️ الدوام</button>
             <button onclick="exportCSV()" class="px-3 py-2 bg-emerald-700 hover:bg-emerald-800 text-white rounded-xl text-xs font-bold">📊 Excel</button>
             <button onclick="exportPDF()" class="px-3 py-2 bg-rose-700 hover:bg-rose-800 text-white rounded-xl text-xs font-bold">📄 PDF</button>
             <button onclick="window.print()" class="px-3 py-2 bg-cyan-800 hover:bg-cyan-900 text-white rounded-xl text-xs font-bold">🖨️ طباعة</button>
@@ -236,7 +235,7 @@
     </div>
   </footer>
 
-  <!-- Modal تقرير محدد بفترة من تاريخ إلى تاريخ -->
+  <!-- Modal تقرير محدد بفترة -->
   <div id="modalRangeReport" class="hidden fixed inset-0 bg-black/60 z-50 flex items-center justify-center p-4">
     <div class="bg-white rounded-2xl max-w-sm w-full p-5 space-y-4 shadow-2xl">
       <h3 class="font-bold text-sm text-slate-800">📅 استخراج تقرير بفترة زمنية محددة</h3>
@@ -251,25 +250,6 @@
       <div class="flex justify-end gap-2 pt-2">
         <button onclick="closeModal('modalRangeReport')" class="px-3 py-1.5 text-xs text-slate-500">إلغاء</button>
         <button onclick="generateRangeReport()" class="px-4 py-2 bg-indigo-700 text-white rounded-xl text-xs font-bold">عرض التقرير</button>
-      </div>
-    </div>
-  </div>
-
-  <!-- Modal Change Times -->
-  <div id="modalTimes" class="hidden fixed inset-0 bg-black/60 z-50 flex items-center justify-center p-4">
-    <div class="bg-white rounded-2xl max-w-xs w-full p-5 space-y-4 shadow-2xl">
-      <h3 class="font-bold text-sm text-slate-800">⚙️ تحديد أوقات الدوام</h3>
-      <div>
-        <label class="block text-xs font-bold text-slate-600 mb-1">نهاية الحضور بالموعد (بعدها تأخر)</label>
-        <input type="time" id="tIn" value="07:15" class="w-full border p-2 rounded-xl text-xs">
-      </div>
-      <div>
-        <label class="block text-xs font-bold text-slate-600 mb-1">بداية الانصراف النظامي (قبلها خروج مبكر)</label>
-        <input type="time" id="tOut" value="12:30" class="w-full border p-2 rounded-xl text-xs">
-      </div>
-      <div class="flex justify-end gap-2 pt-2">
-        <button onclick="closeModal('modalTimes')" class="px-3 py-1.5 text-xs text-slate-500">إلغاء</button>
-        <button onclick="saveTimesSettings()" class="px-4 py-2 bg-teal-700 text-white rounded-xl text-xs font-bold">حفظ</button>
       </div>
     </div>
   </div>
@@ -311,15 +291,24 @@
       "1060888847": "منال سعيد بن ربيع الصاعدي"
     };
 
+    function getDeviceUUID() {
+      let d = localStorage.getItem('DEV_UUID_V2');
+      if (!d) {
+        d = 'DEV_' + Math.random().toString(36).substring(2, 10) + '_' + Date.now();
+        localStorage.setItem('DEV_UUID_V2', d);
+      }
+      return d;
+    }
+
     let curTeacher = null;
     let isAdmin = false;
     let cachedList = [];
 
-    // محرك الإرسال المباشر الأكيد للكتابة في Google Sheets
-    function directRecordToSheet(params) {
+    // إرسال مباشر مؤكد 100% يكتب في Google Sheet من الجوال والكمبيوتر
+    function sendDirectPing(params) {
       const q = new URLSearchParams(params).toString();
-      const beacon = new Image();
-      beacon.src = `${API_URL}?${q}&_ts=${Date.now()}`;
+      const img = new Image();
+      img.src = `${API_URL}?${q}&_ts=${Date.now()}`;
     }
 
     function liveTime() {
@@ -346,6 +335,14 @@
 
       localStorage.setItem('BOUND_TEACHER_ID', id);
       curTeacher = { nationalId: id, name: name };
+
+      // تسجيل ربط الجهاز في الشيت
+      sendDirectPing({
+        action: 'verifyBind',
+        id: id,
+        dev: getDeviceUUID()
+      });
+
       showTeacherDashboard();
     }
 
@@ -393,13 +390,14 @@
       }
       localStorage.setItem(logKey, JSON.stringify(localStatus));
 
-      // إرسال يكتب فوراً في Google Sheet
-      directRecordToSheet({
+      // يكتب في Google Sheet فوراً
+      sendDirectPing({
         action: 'record',
         id: curTeacher.nationalId,
         type: type,
         time: timeStr,
-        date: todayDate
+        date: todayDate,
+        dev: getDeviceUUID()
       });
 
       setTimeout(() => {
@@ -461,55 +459,25 @@
       document.getElementById('reportMainHeading').innerText = 'تقرير متابعة الحضور والانصراف اليومي';
       document.getElementById('kpiCardsArea').classList.remove('hidden');
 
-      // جلب البيانات وقراءتها
-      fetch(`${API_URL}?action=dashboard&date=${d}&_t=${Date.now()}`)
-        .then(res => res.json())
-        .then(res => {
-          if (res && res.list && res.list.length > 0) {
-            document.getElementById('numTotal').innerText = res.stats.total;
-            document.getElementById('numOnTime').innerText = res.stats.onTime;
-            document.getElementById('numLate').innerText = res.stats.late;
-            document.getElementById('numAbsent').innerText = res.stats.absent;
-            document.getElementById('numCheckedOut').innerText = res.stats.checkedOut;
-            document.getElementById('numEarlyOut').innerText = res.stats.earlyOut;
-            cachedList = res.list.map(x => ({ ...x, date: d }));
-            renderTable(cachedList);
-          } else {
-            fallbackLocalDash(d);
-          }
-        })
-        .catch(() => fallbackLocalDash(d));
-    }
+      // جلب البيانات وقراءتها من الشيت عبر JSONP
+      const cbName = 'dash_cb_' + Math.round(100000 * Math.random());
+      window[cbName] = function(res) {
+        delete window[cbName];
+        if (res && res.list) {
+          document.getElementById('numTotal').innerText = res.stats.total;
+          document.getElementById('numOnTime').innerText = res.stats.onTime;
+          document.getElementById('numLate').innerText = res.stats.late;
+          document.getElementById('numAbsent').innerText = res.stats.absent;
+          document.getElementById('numCheckedOut').innerText = res.stats.checkedOut;
+          document.getElementById('numEarlyOut').innerText = res.stats.earlyOut;
+          cachedList = res.list.map(x => ({ ...x, date: d }));
+          renderTable(cachedList);
+        }
+      };
 
-    function fallbackLocalDash(d) {
-      let list = [];
-      let total = 0, attended = 0, onTime = 0;
-      for (let id in TEACHERS_DB) {
-        total++;
-        const logKey = 'LOG_' + d + '_' + id;
-        const log = JSON.parse(localStorage.getItem(logKey) || '{}');
-        const hasIn = log.in ? true : false;
-        if (hasIn) { attended++; onTime++; }
-
-        list.push({
-          date: d,
-          id: id,
-          name: TEACHERS_DB[id],
-          checkIn: log.in || '-',
-          statusIn: hasIn ? 'حضور في الموعد' : 'غائبة',
-          checkOut: log.out || '-',
-          statusOut: log.out ? 'انصراف نظامي' : '-',
-          workHours: log.in && log.out ? 'مكتمل' : '-'
-        });
-      }
-      document.getElementById('numTotal').innerText = total;
-      document.getElementById('numOnTime').innerText = onTime;
-      document.getElementById('numLate').innerText = '0';
-      document.getElementById('numAbsent').innerText = total - attended;
-      document.getElementById('numCheckedOut').innerText = list.filter(x => x.checkOut !== '-').length;
-      document.getElementById('numEarlyOut').innerText = '0';
-      cachedList = list;
-      renderTable(cachedList);
+      const s = document.createElement('script');
+      s.src = `${API_URL}?action=dashboard&date=${d}&callback=${cbName}&_t=${Date.now()}`;
+      document.body.appendChild(s);
     }
 
     function generateRangeReport() {
@@ -522,21 +490,24 @@
       document.getElementById('kpiCardsArea').classList.add('hidden');
       closeModal('modalRangeReport');
 
-      fetch(`${API_URL}?action=dashboard&startDate=${fromD}&endDate=${toD}&_t=${Date.now()}`)
-        .then(res => res.json())
-        .then(res => {
-          if (res && res.list) {
-            cachedList = res.list;
-            renderTable(cachedList);
-          }
-        })
-        .catch(() => alert('تعذر استخراج تقرير الفترة'));
+      const cbName = 'range_cb_' + Math.round(100000 * Math.random());
+      window[cbName] = function(res) {
+        delete window[cbName];
+        if (res && res.list) {
+          cachedList = res.list;
+          renderTable(cachedList);
+        }
+      };
+
+      const s = document.createElement('script');
+      s.src = `${API_URL}?action=dashboard&startDate=${fromD}&endDate=${toD}&callback=${cbName}&_t=${Date.now()}`;
+      document.body.appendChild(s);
     }
 
     function renderTable(list) {
       const body = document.getElementById('tblBody');
       body.innerHTML = '';
-      if (list.length === 0) {
+      if (!list || list.length === 0) {
         body.innerHTML = '<tr><td colspan="10" class="p-4 text-center text-slate-400 font-bold">لا توجد حركات مسجلة لهذه الفترة</td></tr>';
         return;
       }
@@ -549,7 +520,7 @@
         if (r.statusOut === 'انصراف نظامي') badgeOut = '<span class="px-2 py-0.5 bg-blue-100 text-blue-800 rounded font-bold">نظامي</span>';
         if (r.statusOut === 'انصراف مبكر') badgeOut = '<span class="px-2 py-0.5 bg-purple-100 text-purple-800 rounded font-bold">مبكر</span>';
 
-        let deviceBtn = `<button onclick="adminUnbindTeacher('${r.id}', '${r.name}')" class="p-1 bg-amber-100 hover:bg-amber-200 text-amber-900 rounded text-[11px] font-bold">🔓 فك قفل الجهاز</button>`;
+        let deviceBtn = `<button onclick="adminUnbindTeacher('${r.id}', '${r.name}')" class="p-1 bg-amber-100 hover:bg-amber-200 text-amber-900 rounded text-[11px] font-bold">🔓 فك ارتباط الجهاز</button>`;
 
         body.innerHTML += `
           <tr class="hover:bg-slate-50 transition border-b border-slate-200">
@@ -586,14 +557,15 @@
       renderTable(filtered);
     }
 
+    // فك الارتباط من طرف الوكيلة بضغطة زر وتحديث الشيت
     function adminUnbindTeacher(id, name) {
       if (confirm(`هل ترغبين بفك قفل الجهاز للمعلمة (${name}) فوراً؟`)) {
         if (localStorage.getItem('BOUND_TEACHER_ID') === id) {
           localStorage.removeItem('BOUND_TEACHER_ID');
         }
-        directRecordToSheet({ action: 'adminUnbind', id: id });
-        alert('تم فك قفل الجهاز بنجاح.');
-        loadDash();
+        sendDirectPing({ action: 'adminUnbind', id: id });
+        alert('تم فك ارتباط الجهاز عن المعلمة بنجاح في قاعدة البيانات.');
+        setTimeout(loadDash, 800);
       }
     }
 
@@ -623,14 +595,6 @@
 
     function openModal(id) { document.getElementById(id).classList.remove('hidden'); }
     function closeModal(id) { document.getElementById(id).classList.add('hidden'); }
-
-    function saveTimesSettings() {
-      const tin = document.getElementById('tIn').value;
-      const tout = document.getElementById('tOut').value;
-      directRecordToSheet({ action: 'saveTimes', tin: tin, tout: tout });
-      alert('تم حفظ الأوقات بنجاح');
-      closeModal('modalTimes');
-    }
   </script>
 </body>
 </html>
