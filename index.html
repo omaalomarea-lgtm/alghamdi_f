@@ -133,8 +133,8 @@
 
           <div class="flex flex-wrap items-center gap-2">
             <input type="date" id="qDate" onchange="loadDash()" class="px-3 py-2 border rounded-xl font-bold text-xs text-slate-700">
-            <button onclick="loadDash()" class="px-3 py-2 bg-slate-100 hover:bg-slate-200 rounded-xl text-xs font-bold text-slate-700">🔄 تحديث</button>
-            <button onclick="openModal('modalAddTeacher')" class="px-3 py-2 bg-teal-700 hover:bg-teal-800 text-white rounded-xl text-xs font-bold">➕ إضافة معلمة</button>
+            <button onclick="loadDash()" class="px-3 py-2 bg-slate-100 hover:bg-slate-200 rounded-xl text-xs font-bold text-slate-700">🔄 اليومي</button>
+            <button onclick="openModal('modalRangeReport')" class="px-3 py-2 bg-indigo-700 hover:bg-indigo-800 text-white rounded-xl text-xs font-bold">📅 تقرير بفترة</button>
             <button onclick="openModal('modalTimes')" class="px-3 py-2 bg-slate-800 hover:bg-slate-900 text-white rounded-xl text-xs font-bold">⚙️ الدوام</button>
             <button onclick="exportCSV()" class="px-3 py-2 bg-emerald-700 hover:bg-emerald-800 text-white rounded-xl text-xs font-bold">📊 Excel</button>
             <button onclick="exportPDF()" class="px-3 py-2 bg-rose-700 hover:bg-rose-800 text-white rounded-xl text-xs font-bold">📄 PDF</button>
@@ -147,8 +147,8 @@
           
           <div class="border-b pb-4 mb-2 flex justify-between items-center">
             <div>
-              <h2 class="text-xl font-black text-teal-950">تقرير متابعة الحضور والانصراف اليومي</h2>
-              <p class="text-xs text-slate-500 mt-1">تاريخ التقرير: <span id="reportDateTxt" class="font-bold text-slate-800"></span></p>
+              <h2 class="text-xl font-black text-teal-950" id="reportMainHeading">تقرير متابعة الحضور والانصراف</h2>
+              <p class="text-xs text-slate-500 mt-1">الفترة / التاريخ: <span id="reportDateTxt" class="font-bold text-slate-800"></span></p>
             </div>
             <div class="text-left">
               <span class="text-xs font-bold text-slate-400 block">إشراف الوكيلة</span>
@@ -156,10 +156,10 @@
             </div>
           </div>
 
-          <div class="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3">
+          <div id="kpiCardsArea" class="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3">
             <div class="bg-slate-50 p-3.5 rounded-xl border border-slate-200 text-center">
               <span class="text-[11px] font-bold text-slate-500">إجمالي المعلمات</span>
-              <p id="numTotal" class="text-xl font-black text-slate-800 mt-1">0</p>
+              <p id="numTotal" class="text-xl font-black text-slate-800 mt-1">31</p>
             </div>
             <div class="bg-emerald-50/60 p-3.5 rounded-xl border border-emerald-200 text-center">
               <span class="text-[11px] font-bold text-emerald-700">حضور بالموعد</span>
@@ -171,7 +171,7 @@
             </div>
             <div class="bg-rose-50/60 p-3.5 rounded-xl border border-rose-200 text-center">
               <span class="text-[11px] font-bold text-rose-700">غائبات</span>
-              <p id="numAbsent" class="text-xl font-black text-rose-700 mt-1">0</p>
+              <p id="numAbsent" class="text-xl font-black text-rose-700 mt-1">31</p>
             </div>
             <div class="bg-blue-50/60 p-3.5 rounded-xl border border-blue-200 text-center">
               <span class="text-[11px] font-bold text-blue-700">انصراف نظامي</span>
@@ -188,11 +188,10 @@
               <div class="flex items-center gap-2">
                 <span class="text-xs font-bold text-slate-700">تصفية العرض:</span>
                 <select id="filterStatus" onchange="filterTbl()" class="text-xs border rounded-lg p-1.5 font-bold text-slate-700 bg-white">
-                  <option value="ALL">جميع المعلمات</option>
+                  <option value="ALL">جميع السجلات</option>
                   <option value="ONTIME">حضور في الموعد</option>
                   <option value="LATE">متأخرات</option>
                   <option value="ABSENT">غائبات</option>
-                  <option value="EARLY">انصراف مبكر</option>
                 </select>
               </div>
               <input type="text" id="srch" onkeyup="filterTbl()" placeholder="بحث بالاسم أو الهوية..." class="px-3 py-1.5 border rounded-lg text-xs w-48 bg-white">
@@ -203,6 +202,7 @@
                 <thead class="bg-slate-100 text-slate-700 font-bold border-b border-slate-200">
                   <tr>
                     <th class="p-2.5">#</th>
+                    <th class="p-2.5">التاريخ</th>
                     <th class="p-2.5">اسم المعلمة</th>
                     <th class="p-2.5">رقم الهوية</th>
                     <th class="p-2.5">وقت الحضور</th>
@@ -236,21 +236,21 @@
     </div>
   </footer>
 
-  <!-- Modal Add Teacher -->
-  <div id="modalAddTeacher" class="hidden fixed inset-0 bg-black/60 z-50 flex items-center justify-center p-4">
+  <!-- Modal تقرير محدد بفترة من تاريخ إلى تاريخ -->
+  <div id="modalRangeReport" class="hidden fixed inset-0 bg-black/60 z-50 flex items-center justify-center p-4">
     <div class="bg-white rounded-2xl max-w-sm w-full p-5 space-y-4 shadow-2xl">
-      <h3 class="font-bold text-sm text-slate-800">➕ إضافة معلمة جديدة</h3>
+      <h3 class="font-bold text-sm text-slate-800">📅 استخراج تقرير بفترة زمنية محددة</h3>
       <div>
-        <label class="block text-xs font-bold text-slate-600 mb-1">اسم المعلمة الكامل</label>
-        <input type="text" id="addName" placeholder="الاسم الثلاثي أو الرباعي" class="w-full border p-2 rounded-xl text-xs font-bold">
+        <label class="block text-xs font-bold text-slate-600 mb-1">من تاريخ</label>
+        <input type="date" id="repFromDate" class="w-full border p-2 rounded-xl text-xs font-bold">
       </div>
       <div>
-        <label class="block text-xs font-bold text-slate-600 mb-1">رقم الهوية الوطنية</label>
-        <input type="tel" id="addId" maxlength="10" placeholder="10xxxxxxxx" class="w-full border p-2 rounded-xl text-xs font-mono font-bold">
+        <label class="block text-xs font-bold text-slate-600 mb-1">إلى تاريخ</label>
+        <input type="date" id="repToDate" class="w-full border p-2 rounded-xl text-xs font-bold">
       </div>
       <div class="flex justify-end gap-2 pt-2">
-        <button onclick="closeModal('modalAddTeacher')" class="px-3 py-1.5 text-xs text-slate-500">إلغاء</button>
-        <button onclick="submitAddTeacher()" class="px-4 py-1.5 bg-teal-700 text-white rounded-xl text-xs font-bold">حفظ وإضافة</button>
+        <button onclick="closeModal('modalRangeReport')" class="px-3 py-1.5 text-xs text-slate-500">إلغاء</button>
+        <button onclick="generateRangeReport()" class="px-4 py-2 bg-indigo-700 text-white rounded-xl text-xs font-bold">عرض التقرير</button>
       </div>
     </div>
   </div>
@@ -261,11 +261,11 @@
       <h3 class="font-bold text-sm text-slate-800">⚙️ تحديد أوقات الدوام</h3>
       <div>
         <label class="block text-xs font-bold text-slate-600 mb-1">نهاية الحضور بالموعد (بعدها تأخر)</label>
-        <input type="time" id="tIn" class="w-full border p-2 rounded-xl text-xs">
+        <input type="time" id="tIn" value="07:15" class="w-full border p-2 rounded-xl text-xs">
       </div>
       <div>
         <label class="block text-xs font-bold text-slate-600 mb-1">بداية الانصراف النظامي (قبلها خروج مبكر)</label>
-        <input type="time" id="tOut" class="w-full border p-2 rounded-xl text-xs">
+        <input type="time" id="tOut" value="12:30" class="w-full border p-2 rounded-xl text-xs">
       </div>
       <div class="flex justify-end gap-2 pt-2">
         <button onclick="closeModal('modalTimes')" class="px-3 py-1.5 text-xs text-slate-500">إلغاء</button>
@@ -315,11 +315,11 @@
     let isAdmin = false;
     let cachedList = [];
 
-    // إرسال مباشر وسريع لحفظ الحركة في Google Sheets
-    function sendRecordToGoogleSheet(params) {
+    // محرك الإرسال المباشر الأكيد للكتابة في Google Sheets
+    function directRecordToSheet(params) {
       const q = new URLSearchParams(params).toString();
-      const img = new Image();
-      img.src = `${API_URL}?${q}&_t=${Date.now()}`;
+      const beacon = new Image();
+      beacon.src = `${API_URL}?${q}&_ts=${Date.now()}`;
     }
 
     function liveTime() {
@@ -342,9 +342,7 @@
       if (!id) return alert('الرجاء إدخال رقم الهوية');
 
       const name = TEACHERS_DB[id];
-      if (!name) {
-        return alert('رقم الهوية غير مسجل في النظام');
-      }
+      if (!name) return alert('رقم الهوية غير مسجل في النظام');
 
       localStorage.setItem('BOUND_TEACHER_ID', id);
       curTeacher = { nationalId: id, name: name };
@@ -379,7 +377,7 @@
       if (!curTeacher) return;
       const btn = type === 'CHECK_IN' ? document.getElementById('btnIn') : document.getElementById('btnOut');
       const oldTxt = btn.innerText;
-      btn.innerText = 'جاري الحفظ بالشيت...';
+      btn.innerText = 'جاري الحفظ في الشيت...';
       btn.disabled = true;
 
       const now = new Date();
@@ -395,8 +393,8 @@
       }
       localStorage.setItem(logKey, JSON.stringify(localStatus));
 
-      // إرسال مباشر يكتب في Google Sheet فوراً
-      sendRecordToGoogleSheet({
+      // إرسال يكتب فوراً في Google Sheet
+      directRecordToSheet({
         action: 'record',
         id: curTeacher.nationalId,
         type: type,
@@ -460,12 +458,32 @@
       const d = document.getElementById('qDate').value || new Date().toISOString().slice(0,10);
       document.getElementById('qDate').value = d;
       document.getElementById('reportDateTxt').innerText = d;
+      document.getElementById('reportMainHeading').innerText = 'تقرير متابعة الحضور والانصراف اليومي';
+      document.getElementById('kpiCardsArea').classList.remove('hidden');
 
+      // جلب البيانات وقراءتها
+      fetch(`${API_URL}?action=dashboard&date=${d}&_t=${Date.now()}`)
+        .then(res => res.json())
+        .then(res => {
+          if (res && res.list && res.list.length > 0) {
+            document.getElementById('numTotal').innerText = res.stats.total;
+            document.getElementById('numOnTime').innerText = res.stats.onTime;
+            document.getElementById('numLate').innerText = res.stats.late;
+            document.getElementById('numAbsent').innerText = res.stats.absent;
+            document.getElementById('numCheckedOut').innerText = res.stats.checkedOut;
+            document.getElementById('numEarlyOut').innerText = res.stats.earlyOut;
+            cachedList = res.list.map(x => ({ ...x, date: d }));
+            renderTable(cachedList);
+          } else {
+            fallbackLocalDash(d);
+          }
+        })
+        .catch(() => fallbackLocalDash(d));
+    }
+
+    function fallbackLocalDash(d) {
       let list = [];
-      let total = 0;
-      let attended = 0;
-      let onTime = 0;
-
+      let total = 0, attended = 0, onTime = 0;
       for (let id in TEACHERS_DB) {
         total++;
         const logKey = 'LOG_' + d + '_' + id;
@@ -474,6 +492,7 @@
         if (hasIn) { attended++; onTime++; }
 
         list.push({
+          date: d,
           id: id,
           name: TEACHERS_DB[id],
           checkIn: log.in || '-',
@@ -483,43 +502,68 @@
           workHours: log.in && log.out ? 'مكتمل' : '-'
         });
       }
-
       document.getElementById('numTotal').innerText = total;
       document.getElementById('numOnTime').innerText = onTime;
       document.getElementById('numLate').innerText = '0';
       document.getElementById('numAbsent').innerText = total - attended;
       document.getElementById('numCheckedOut').innerText = list.filter(x => x.checkOut !== '-').length;
       document.getElementById('numEarlyOut').innerText = '0';
-
       cachedList = list;
       renderTable(cachedList);
+    }
+
+    function generateRangeReport() {
+      const fromD = document.getElementById('repFromDate').value;
+      const toD = document.getElementById('repToDate').value;
+      if (!fromD || !toD) return alert('الرجاء اختيار تاريخ البداية والنهاية');
+
+      document.getElementById('reportMainHeading').innerText = `تقرير الحضور والانصراف للفترة من (${fromD}) إلى (${toD})`;
+      document.getElementById('reportDateTxt').innerText = `من ${fromD} إلى ${toD}`;
+      document.getElementById('kpiCardsArea').classList.add('hidden');
+      closeModal('modalRangeReport');
+
+      fetch(`${API_URL}?action=dashboard&startDate=${fromD}&endDate=${toD}&_t=${Date.now()}`)
+        .then(res => res.json())
+        .then(res => {
+          if (res && res.list) {
+            cachedList = res.list;
+            renderTable(cachedList);
+          }
+        })
+        .catch(() => alert('تعذر استخراج تقرير الفترة'));
     }
 
     function renderTable(list) {
       const body = document.getElementById('tblBody');
       body.innerHTML = '';
+      if (list.length === 0) {
+        body.innerHTML = '<tr><td colspan="10" class="p-4 text-center text-slate-400 font-bold">لا توجد حركات مسجلة لهذه الفترة</td></tr>';
+        return;
+      }
       list.forEach((r, idx) => {
         let badge = '<span class="px-2 py-0.5 bg-rose-100 text-rose-800 rounded font-bold">غائبة</span>';
         if (r.statusIn === 'حضور في الموعد') badge = '<span class="px-2 py-0.5 bg-emerald-100 text-emerald-800 rounded font-bold">في الموعد</span>';
+        if (r.statusIn === 'حضور متأخر') badge = `<span class="px-2 py-0.5 bg-amber-100 text-amber-800 rounded font-bold">متأخر</span>`;
 
-        let badgeOut = `<span class="text-slate-400">${r.statusOut}</span>`;
+        let badgeOut = `<span class="text-slate-400">${r.statusOut || '-'}</span>`;
         if (r.statusOut === 'انصراف نظامي') badgeOut = '<span class="px-2 py-0.5 bg-blue-100 text-blue-800 rounded font-bold">نظامي</span>';
+        if (r.statusOut === 'انصراف مبكر') badgeOut = '<span class="px-2 py-0.5 bg-purple-100 text-purple-800 rounded font-bold">مبكر</span>';
 
         let deviceBtn = `<button onclick="adminUnbindTeacher('${r.id}', '${r.name}')" class="p-1 bg-amber-100 hover:bg-amber-200 text-amber-900 rounded text-[11px] font-bold">🔓 فك قفل الجهاز</button>`;
 
         body.innerHTML += `
           <tr class="hover:bg-slate-50 transition border-b border-slate-200">
             <td class="p-2.5 font-bold text-slate-400">${idx + 1}</td>
+            <td class="p-2.5 font-mono text-slate-600">${r.date || document.getElementById('qDate').value}</td>
             <td class="p-2.5 font-bold text-slate-800">${r.name}</td>
             <td class="p-2.5 font-mono text-slate-500">${r.id}</td>
             <td class="p-2.5 font-semibold text-slate-700">${r.checkIn}</td>
             <td class="p-2.5">${badge}</td>
             <td class="p-2.5 font-semibold text-slate-700">${r.checkOut}</td>
             <td class="p-2.5">${badgeOut}</td>
-            <td class="p-2.5 font-bold text-teal-700">${r.workHours}</td>
-            <td class="p-2.5 text-center flex items-center justify-center gap-1.5 no-print">
+            <td class="p-2.5 font-bold text-teal-700">${r.workHours || '-'}</td>
+            <td class="p-2.5 text-center no-print">
               ${deviceBtn}
-              <button onclick="confirmDeleteTeacher('${r.id}', '${r.name}')" class="p-1 bg-rose-100 hover:bg-rose-200 text-rose-800 rounded text-[11px] font-bold">🗑️ حذف</button>
             </td>
           </tr>
         `;
@@ -534,6 +578,7 @@
         const matchQuery = r.name.toLowerCase().includes(q) || r.id.includes(q);
         let matchStatus = true;
         if (statusF === 'ONTIME') matchStatus = r.statusIn === 'حضور في الموعد';
+        if (statusF === 'LATE') matchStatus = r.statusIn === 'حضور متأخر';
         if (statusF === 'ABSENT') matchStatus = r.statusIn === 'غائبة';
         return matchQuery && matchStatus;
       });
@@ -542,47 +587,25 @@
     }
 
     function adminUnbindTeacher(id, name) {
-      if (confirm(`هل ترغبين بإلغاء قفل الجوال للمعلمة (${name})؟`)) {
+      if (confirm(`هل ترغبين بفك قفل الجهاز للمعلمة (${name}) فوراً؟`)) {
         if (localStorage.getItem('BOUND_TEACHER_ID') === id) {
           localStorage.removeItem('BOUND_TEACHER_ID');
         }
-        alert('تم فك ارتباط الجهاز عن المعلمة بنجاح.');
+        directRecordToSheet({ action: 'adminUnbind', id: id });
+        alert('تم فك قفل الجهاز بنجاح.');
         loadDash();
       }
-    }
-
-    function confirmDeleteTeacher(id, name) {
-      if (confirm(`هل أنتِ متأكدة من حذف المعلمة (${name}) نهائياً؟`)) {
-        delete TEACHERS_DB[id];
-        sendRecordToGoogleSheet({ action: 'deleteTeacher', id: id });
-        alert('تم حذف المعلمة بنجاح.');
-        loadDash();
-      }
-    }
-
-    function submitAddTeacher() {
-      const name = document.getElementById('addName').value.trim();
-      const id = document.getElementById('addId').value.trim();
-      if (!name || !id) return alert('الرجاء تعبئة الاسم ورقم الهوية');
-
-      TEACHERS_DB[id] = name;
-      sendRecordToGoogleSheet({ action: 'addTeacher', name: name, id: id });
-      alert('تمت إضافة المعلمة بنجاح');
-      closeModal('modalAddTeacher');
-      document.getElementById('addName').value = '';
-      document.getElementById('addId').value = '';
-      loadDash();
     }
 
     function exportCSV() {
-      let csv = "\uFEFFاسم المعلمة,رقم الهوية,وقت الحضور,حالة الحضور,وقت الانصراف,حالة الانصراف,ساعات العمل\n";
+      let csv = "\uFEFFالتاريخ,اسم المعلمة,رقم الهوية,وقت الحضور,حالة الحضور,وقت الانصراف,حالة الانصراف,ساعات العمل\n";
       cachedList.forEach(r => {
-        csv += `"${r.name}","${r.id}","${r.checkIn}","${r.statusIn}","${r.checkOut}","${r.statusOut}","${r.workHours}"\n`;
+        csv += `"${r.date || ''}","${r.name}","${r.id}","${r.checkIn}","${r.statusIn}","${r.checkOut}","${r.statusOut}","${r.workHours || ''}"\n`;
       });
       const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
       const link = document.createElement("a");
       link.href = URL.createObjectURL(blob);
-      link.download = `تقرير_دوام_المعلمات_${document.getElementById('qDate').value}.csv`;
+      link.download = `تقرير_دوام_المعلمات.csv`;
       link.click();
     }
 
@@ -590,7 +613,7 @@
       const element = document.getElementById('pdfReportArea');
       const opt = {
         margin: [10, 10, 10, 10],
-        filename: `تقرير_دوام_المعلمات_${document.getElementById('qDate').value}.pdf`,
+        filename: `تقرير_دوام_المعلمات.pdf`,
         image: { type: 'jpeg', quality: 0.98 },
         html2canvas: { scale: 2, useCORS: true },
         jsPDF: { unit: 'mm', format: 'a4', orientation: 'portrait' }
@@ -604,7 +627,7 @@
     function saveTimesSettings() {
       const tin = document.getElementById('tIn').value;
       const tout = document.getElementById('tOut').value;
-      sendRecordToGoogleSheet({ action: 'saveTimes', tin: tin, tout: tout });
+      directRecordToSheet({ action: 'saveTimes', tin: tin, tout: tout });
       alert('تم حفظ الأوقات بنجاح');
       closeModal('modalTimes');
     }
