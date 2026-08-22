@@ -1,4 +1,3 @@
-HTML
 <!DOCTYPE html>
 <html lang="ar" dir="rtl">
 <head>
@@ -290,13 +289,14 @@ HTML
       </div>
       <div class="flex justify-end gap-2 pt-2">
         <button onclick="closeModal('modalTimes')" class="px-3 py-1.5 text-xs text-slate-500">إلغاء</button>
-        <button onclick="saveTimesSettings()" class="px-4 py-1.5 bg-teal-700 text-white rounded-xl text-xs font-bold">حفظ</button>
+        <button onclick="saveTimesSettings()" class="px-4 py-2 bg-teal-700 text-white rounded-xl text-xs font-bold">حفظ</button>
       </div>
     </div>
   </div>
 
   <script>
-    const API_URL = "https://script.google.com/macros/s/AKfycbwo5ooAKgJr0iNsv2L65DaJe7WXuU8ILBxrWzw02FxXhjtlGZCrc-e1z5Zz2C_72FJ9eQ/exec";
+    // الرابط السحابي الجديد المعتمد
+    const API_URL = "https://script.google.com/macros/s/AKfycbxiUtk3-gtyAQEqGGvG2ZAKf4tUvF-IkuzN7K2zQ1t6hmsCxI_pgMlDjq0z-h3Czq59HA/exec";
 
     function getDeviceFingerprint() {
       let dev = localStorage.getItem('DEV_LOCK_ID');
@@ -311,7 +311,7 @@ HTML
     let isAdmin = false;
     let cachedList = [];
 
-    // محرك اتصال متقدم عبر JSONP ديناميكي متوافق 100% مع الجوالات
+    // محرك اتصال متقدم عبر JSONP ديناميكي متوافق مع كافة متصفحات الهواتف
     function apiCall(params, callback) {
       const cbName = 'jsonp_res_' + Math.round(100000 * Math.random());
       params.callback = cbName;
@@ -516,7 +516,7 @@ HTML
         if (r.statusOut === 'انصراف مبكر') badgeOut = '<span class="px-2 py-0.5 bg-purple-100 text-purple-800 rounded font-bold">مبكر</span>';
 
         let deviceBtn = r.bound 
-          ? `<button onclick="adminUnbindTeacher('${r.id}', '${r.name}')" class="p-1 bg-amber-100 hover:bg-amber-200 text-amber-900 rounded text-[11px] font-bold">🔓 فك ارتباط الجهاز</button>`
+          ? `<button onclick="adminUnbindTeacher('${r.id}', '${r.name}')" class="p-1 bg-amber-100 hover:bg-amber-200 text-amber-900 rounded text-[11px] font-bold">🔓 فك قفل الجهاز</button>`
           : `<span class="text-[10px] text-slate-400 font-bold">غير مقيد</span>`;
 
         body.innerHTML += `
@@ -555,7 +555,6 @@ HTML
       renderTable(filtered);
     }
 
-    // فك الارتباط من طرف الوكيلة فقط
     function adminUnbindTeacher(id, name) {
       if (confirm(`هل ترغبين بإلغاء قفل الجوال للمعلمة (${name}) فوراً؟\nسيتيح لها ذلك تسجيل الدخول من أي جهاز جديد.`)) {
         apiCall({ action: 'adminUnbind', id: id }, function(res) {
