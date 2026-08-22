@@ -315,26 +315,11 @@
     let isAdmin = false;
     let cachedList = [];
 
-    // إرسال مباشر للسيرفر لحفظ البيانات في Google Sheets بدون أي حظر CORS
-    function sendDataToSheet(params) {
-      const urlParams = new URLSearchParams(params);
-      fetch(API_URL, {
-        method: 'POST',
-        mode: 'no-cors',
-        headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
-        body: urlParams.toString()
-      }).catch(err => console.log(err));
-    }
-
-    // جلب مباشر للبيانات من السيرفر لقراءة التقرير اليومي
-    function fetchDashboardFromSheet(dateStr, callback) {
-      fetch(`${API_URL}?action=dashboard&date=${dateStr}`)
-        .then(res => res.json())
-        .then(data => callback(data))
-        .catch(err => {
-          console.log(err);
-          callback(null);
-        });
+    // إرسال مباشر وسريع لحفظ الحركة في Google Sheets
+    function sendRecordToGoogleSheet(params) {
+      const q = new URLSearchParams(params).toString();
+      const img = new Image();
+      img.src = `${API_URL}?${q}&_t=${Date.now()}`;
     }
 
     function liveTime() {
@@ -394,7 +379,7 @@
       if (!curTeacher) return;
       const btn = type === 'CHECK_IN' ? document.getElementById('btnIn') : document.getElementById('btnOut');
       const oldTxt = btn.innerText;
-      btn.innerText = 'جاري الحفظ في الشيت...';
+      btn.innerText = 'جاري الحفظ بالشيت...';
       btn.disabled = true;
 
       const now = new Date();
@@ -410,8 +395,8 @@
       }
       localStorage.setItem(logKey, JSON.stringify(localStatus));
 
-      // إرسال مباشر لحفظ السجل في Google Sheets
-      sendDataToSheet({
+      // إرسال مباشر يكتب في Google Sheet فوراً
+      sendRecordToGoogleSheet({
         action: 'record',
         id: curTeacher.nationalId,
         type: type,
@@ -426,7 +411,7 @@
         box.classList.remove('hidden');
         box.className = "p-3 rounded-xl text-xs font-bold bg-emerald-100 text-emerald-900 border border-emerald-300";
         box.innerText = (type === 'CHECK_IN' ? 'تم تسجيل حضورك بنجاح' : 'تم تسجيل انصرافك بنجاح') + ' - الساعة ' + timeStr;
-      }, 1000);
+      }, 700);
     }
 
     function tab(target) {
@@ -476,25 +461,6 @@
       document.getElementById('qDate').value = d;
       document.getElementById('reportDateTxt').innerText = d;
 
-      // محاولة الجلب الحي من Google Sheet
-      fetchDashboardFromSheet(d, function(res) {
-        if (res && res.stats) {
-          document.getElementById('numTotal').innerText = res.stats.total;
-          document.getElementById('numOnTime').innerText = res.stats.onTime;
-          document.getElementById('numLate').innerText = res.stats.late;
-          document.getElementById('numAbsent').innerText = res.stats.absent;
-          document.getElementById('numCheckedOut').innerText = res.stats.checkedOut;
-          document.getElementById('numEarlyOut').innerText = res.stats.earlyOut;
-          cachedList = res.list;
-          renderTable(cachedList);
-        } else {
-          // في حال عدم توفر رد لحظي، يتم البناء من البيانات المحلية
-          buildLocalDashboard(d);
-        }
-      });
-    }
-
-    function buildLocalDashboard(d) {
       let list = [];
       let total = 0;
       let attended = 0;
@@ -535,11 +501,9 @@
       list.forEach((r, idx) => {
         let badge = '<span class="px-2 py-0.5 bg-rose-100 text-rose-800 rounded font-bold">غائبة</span>';
         if (r.statusIn === 'حضور في الموعد') badge = '<span class="px-2 py-0.5 bg-emerald-100 text-emerald-800 rounded font-bold">في الموعد</span>';
-        if (r.statusIn === 'حضور متأخر') badge = `<span class="px-2 py-0.5 bg-amber-100 text-amber-800 rounded font-bold">متأخر (${r.lateMin} د)</span>`;
 
         let badgeOut = `<span class="text-slate-400">${r.statusOut}</span>`;
         if (r.statusOut === 'انصراف نظامي') badgeOut = '<span class="px-2 py-0.5 bg-blue-100 text-blue-800 rounded font-bold">نظامي</span>';
-        if (r.statusOut === 'انصراف مبكر') badgeOut = '<span class="px-2 py-0.5 bg-purple-100 text-purple-800 rounded font-bold">مبكر</span>';
 
         let deviceBtn = `<button onclick="adminUnbindTeacher('${r.id}', '${r.name}')" class="p-1 bg-amber-100 hover:bg-amber-200 text-amber-900 rounded text-[11px] font-bold">🔓 فك قفل الجهاز</button>`;
 
@@ -570,9 +534,7 @@
         const matchQuery = r.name.toLowerCase().includes(q) || r.id.includes(q);
         let matchStatus = true;
         if (statusF === 'ONTIME') matchStatus = r.statusIn === 'حضور في الموعد';
-        if (statusF === 'LATE') matchStatus = r.statusIn === 'حضور متأخر';
         if (statusF === 'ABSENT') matchStatus = r.statusIn === 'غائبة';
-        if (statusF === 'EARLY') matchStatus = r.statusOut === 'انصراف مبكر';
         return matchQuery && matchStatus;
       });
 
@@ -580,11 +542,10 @@
     }
 
     function adminUnbindTeacher(id, name) {
-      if (confirm(`هل ترغبين بإلغاء قفل الجوال للمعلمة (${name})؟\nسيتيح لها ذلك تسجيل الدخول من أي جهاز جديد.`)) {
+      if (confirm(`هل ترغبين بإلغاء قفل الجوال للمعلمة (${name})؟`)) {
         if (localStorage.getItem('BOUND_TEACHER_ID') === id) {
           localStorage.removeItem('BOUND_TEACHER_ID');
         }
-        sendDataToSheet({ action: 'adminUnbind', id: id });
         alert('تم فك ارتباط الجهاز عن المعلمة بنجاح.');
         loadDash();
       }
@@ -593,7 +554,7 @@
     function confirmDeleteTeacher(id, name) {
       if (confirm(`هل أنتِ متأكدة من حذف المعلمة (${name}) نهائياً؟`)) {
         delete TEACHERS_DB[id];
-        sendDataToSheet({ action: 'deleteTeacher', id: id });
+        sendRecordToGoogleSheet({ action: 'deleteTeacher', id: id });
         alert('تم حذف المعلمة بنجاح.');
         loadDash();
       }
@@ -605,7 +566,7 @@
       if (!name || !id) return alert('الرجاء تعبئة الاسم ورقم الهوية');
 
       TEACHERS_DB[id] = name;
-      sendDataToSheet({ action: 'addTeacher', name: name, id: id });
+      sendRecordToGoogleSheet({ action: 'addTeacher', name: name, id: id });
       alert('تمت إضافة المعلمة بنجاح');
       closeModal('modalAddTeacher');
       document.getElementById('addName').value = '';
@@ -643,7 +604,7 @@
     function saveTimesSettings() {
       const tin = document.getElementById('tIn').value;
       const tout = document.getElementById('tOut').value;
-      sendDataToSheet({ action: 'saveTimes', tin: tin, tout: tout });
+      sendRecordToGoogleSheet({ action: 'saveTimes', tin: tin, tout: tout });
       alert('تم حفظ الأوقات بنجاح');
       closeModal('modalTimes');
     }
