@@ -19,22 +19,6 @@
 </head>
 <body class="bg-slate-100 min-h-screen text-slate-800 flex flex-col justify-between">
 
-  <!-- النموذج الخفي لإرسال البيانات دون حظر CORS -->
-  <iframe name="hidden_iframe" id="hidden_iframe" style="display:none;"></iframe>
-  <form id="submissionForm" target="hidden_iframe" method="POST" action="https://script.google.com/macros/s/AKfycbxiUtk3-gtyAQEqGGvG2ZAKf4tUvF-IkuzN7K2zQ1t6hmsCxI_pgMlDjq0z-h3Czq59HA/exec" style="display:none;">
-    <input type="hidden" name="action" id="f_action">
-    <input type="hidden" name="id" id="f_id">
-    <input type="hidden" name="name" id="f_name">
-    <input type="hidden" name="type" id="f_type">
-    <input type="hidden" name="deviceId" id="f_deviceId">
-    <input type="hidden" name="user" id="f_user">
-    <input type="hidden" name="pass" id="f_pass">
-    <input type="hidden" name="oldP" id="f_oldP">
-    <input type="hidden" name="newP" id="f_newP">
-    <input type="hidden" name="tin" id="f_tin">
-    <input type="hidden" name="tout" id="f_tout">
-  </form>
-
   <div>
     <!-- Header -->
     <header class="bg-teal-900 text-white shadow-md sticky top-0 z-30 no-print">
@@ -152,7 +136,6 @@
             <button onclick="loadDash()" class="px-3 py-2 bg-slate-100 hover:bg-slate-200 rounded-xl text-xs font-bold text-slate-700">🔄 تحديث</button>
             <button onclick="openModal('modalAddTeacher')" class="px-3 py-2 bg-teal-700 hover:bg-teal-800 text-white rounded-xl text-xs font-bold">➕ إضافة معلمة</button>
             <button onclick="openModal('modalTimes')" class="px-3 py-2 bg-slate-800 hover:bg-slate-900 text-white rounded-xl text-xs font-bold">⚙️ الدوام</button>
-            <button onclick="openModal('modalPass')" class="px-3 py-2 bg-slate-700 hover:bg-slate-800 text-white rounded-xl text-xs font-bold">🔑 الرمز</button>
             <button onclick="exportCSV()" class="px-3 py-2 bg-emerald-700 hover:bg-emerald-800 text-white rounded-xl text-xs font-bold">📊 Excel</button>
             <button onclick="exportPDF()" class="px-3 py-2 bg-rose-700 hover:bg-rose-800 text-white rounded-xl text-xs font-bold">📄 PDF</button>
             <button onclick="window.print()" class="px-3 py-2 bg-cyan-800 hover:bg-cyan-900 text-white rounded-xl text-xs font-bold">🖨️ طباعة</button>
@@ -272,25 +255,6 @@
     </div>
   </div>
 
-  <!-- Modal Change Password -->
-  <div id="modalPass" class="hidden fixed inset-0 bg-black/60 z-50 flex items-center justify-center p-4">
-    <div class="bg-white rounded-2xl max-w-xs w-full p-5 space-y-4 shadow-2xl">
-      <h3 class="font-bold text-sm text-slate-800">🔑 تغيير كلمة المرور</h3>
-      <div>
-        <label class="block text-xs font-bold text-slate-600 mb-1">الرمز الحالي</label>
-        <input type="password" id="pOld" class="w-full border p-2 rounded-xl text-xs">
-      </div>
-      <div>
-        <label class="block text-xs font-bold text-slate-600 mb-1">الرمز الجديد</label>
-        <input type="password" id="pNew" class="w-full border p-2 rounded-xl text-xs">
-      </div>
-      <div class="flex justify-end gap-2 pt-2">
-        <button onclick="closeModal('modalPass')" class="px-3 py-1.5 text-xs text-slate-500">إلغاء</button>
-        <button onclick="savePass()" class="px-4 py-1.5 bg-teal-700 text-white rounded-xl text-xs font-bold">حفظ</button>
-      </div>
-    </div>
-  </div>
-
   <!-- Modal Change Times -->
   <div id="modalTimes" class="hidden fixed inset-0 bg-black/60 z-50 flex items-center justify-center p-4">
     <div class="bg-white rounded-2xl max-w-xs w-full p-5 space-y-4 shadow-2xl">
@@ -313,7 +277,6 @@
   <script>
     const API_URL = "https://script.google.com/macros/s/AKfycbxiUtk3-gtyAQEqGGvG2ZAKf4tUvF-IkuzN7K2zQ1t6hmsCxI_pgMlDjq0z-h3Czq59HA/exec";
 
-    // قائمة المعلمات الأساسية للتحقق الفوري
     let TEACHERS_DB = {
       "1022369092": "صالحه نجدي مناحي البلوي",
       "1059648780": "هويدا منصور سعيد الصحفي",
@@ -352,14 +315,26 @@
     let isAdmin = false;
     let cachedList = [];
 
-    // إرسال البيانات الموثوق للسيرفر عبر النموذج السحابي لمنع حظر المتصفح
-    function submitServerData(params) {
-      const form = document.getElementById('submissionForm');
-      for (const key in params) {
-        const input = document.getElementById('f_' + key);
-        if (input) input.value = params[key];
-      }
-      form.submit();
+    // إرسال مباشر للسيرفر لحفظ البيانات في Google Sheets بدون أي حظر CORS
+    function sendDataToSheet(params) {
+      const urlParams = new URLSearchParams(params);
+      fetch(API_URL, {
+        method: 'POST',
+        mode: 'no-cors',
+        headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+        body: urlParams.toString()
+      }).catch(err => console.log(err));
+    }
+
+    // جلب مباشر للبيانات من السيرفر لقراءة التقرير اليومي
+    function fetchDashboardFromSheet(dateStr, callback) {
+      fetch(`${API_URL}?action=dashboard&date=${dateStr}`)
+        .then(res => res.json())
+        .then(data => callback(data))
+        .catch(err => {
+          console.log(err);
+          callback(null);
+        });
     }
 
     function liveTime() {
@@ -377,7 +352,6 @@
       }
     });
 
-    // ربط فوري ومباشر على الجوال
     function bindAndVerify() {
       const id = document.getElementById('inputId').value.trim();
       if (!id) return alert('الرجاء إدخال رقم الهوية');
@@ -389,9 +363,6 @@
 
       localStorage.setItem('BOUND_TEACHER_ID', id);
       curTeacher = { nationalId: id, name: name };
-      
-      // إرسال التوثيق للسيرفر
-      submitServerData({ action: 'verify', id: id });
       showTeacherDashboard();
     }
 
@@ -423,12 +394,13 @@
       if (!curTeacher) return;
       const btn = type === 'CHECK_IN' ? document.getElementById('btnIn') : document.getElementById('btnOut');
       const oldTxt = btn.innerText;
-      btn.innerText = 'جاري الحفظ بالسيرفر...';
+      btn.innerText = 'جاري الحفظ في الشيت...';
       btn.disabled = true;
 
       const now = new Date();
       const timeStr = now.toLocaleTimeString('ar-SA', { hour: '2-digit', minute: '2-digit' });
-      const logKey = 'LOG_' + now.toISOString().slice(0,10) + '_' + curTeacher.nationalId;
+      const todayDate = now.toISOString().slice(0,10);
+      const logKey = 'LOG_' + todayDate + '_' + curTeacher.nationalId;
       let localStatus = JSON.parse(localStorage.getItem(logKey) || '{}');
 
       if (type === 'CHECK_IN') {
@@ -438,8 +410,14 @@
       }
       localStorage.setItem(logKey, JSON.stringify(localStatus));
 
-      // إرسال فوري إلى Google Sheets
-      submitServerData({ action: 'record', id: curTeacher.nationalId, type: type });
+      // إرسال مباشر لحفظ السجل في Google Sheets
+      sendDataToSheet({
+        action: 'record',
+        id: curTeacher.nationalId,
+        type: type,
+        time: timeStr,
+        date: todayDate
+      });
 
       setTimeout(() => {
         btn.innerText = oldTxt;
@@ -498,6 +476,25 @@
       document.getElementById('qDate').value = d;
       document.getElementById('reportDateTxt').innerText = d;
 
+      // محاولة الجلب الحي من Google Sheet
+      fetchDashboardFromSheet(d, function(res) {
+        if (res && res.stats) {
+          document.getElementById('numTotal').innerText = res.stats.total;
+          document.getElementById('numOnTime').innerText = res.stats.onTime;
+          document.getElementById('numLate').innerText = res.stats.late;
+          document.getElementById('numAbsent').innerText = res.stats.absent;
+          document.getElementById('numCheckedOut').innerText = res.stats.checkedOut;
+          document.getElementById('numEarlyOut').innerText = res.stats.earlyOut;
+          cachedList = res.list;
+          renderTable(cachedList);
+        } else {
+          // في حال عدم توفر رد لحظي، يتم البناء من البيانات المحلية
+          buildLocalDashboard(d);
+        }
+      });
+    }
+
+    function buildLocalDashboard(d) {
       let list = [];
       let total = 0;
       let attended = 0;
@@ -513,7 +510,6 @@
         list.push({
           id: id,
           name: TEACHERS_DB[id],
-          bound: localStorage.getItem('BOUND_TEACHER_ID') === id,
           checkIn: log.in || '-',
           statusIn: hasIn ? 'حضور في الموعد' : 'غائبة',
           checkOut: log.out || '-',
@@ -539,9 +535,11 @@
       list.forEach((r, idx) => {
         let badge = '<span class="px-2 py-0.5 bg-rose-100 text-rose-800 rounded font-bold">غائبة</span>';
         if (r.statusIn === 'حضور في الموعد') badge = '<span class="px-2 py-0.5 bg-emerald-100 text-emerald-800 rounded font-bold">في الموعد</span>';
+        if (r.statusIn === 'حضور متأخر') badge = `<span class="px-2 py-0.5 bg-amber-100 text-amber-800 rounded font-bold">متأخر (${r.lateMin} د)</span>`;
 
         let badgeOut = `<span class="text-slate-400">${r.statusOut}</span>`;
         if (r.statusOut === 'انصراف نظامي') badgeOut = '<span class="px-2 py-0.5 bg-blue-100 text-blue-800 rounded font-bold">نظامي</span>';
+        if (r.statusOut === 'انصراف مبكر') badgeOut = '<span class="px-2 py-0.5 bg-purple-100 text-purple-800 rounded font-bold">مبكر</span>';
 
         let deviceBtn = `<button onclick="adminUnbindTeacher('${r.id}', '${r.name}')" class="p-1 bg-amber-100 hover:bg-amber-200 text-amber-900 rounded text-[11px] font-bold">🔓 فك قفل الجهاز</button>`;
 
@@ -572,7 +570,9 @@
         const matchQuery = r.name.toLowerCase().includes(q) || r.id.includes(q);
         let matchStatus = true;
         if (statusF === 'ONTIME') matchStatus = r.statusIn === 'حضور في الموعد';
+        if (statusF === 'LATE') matchStatus = r.statusIn === 'حضور متأخر';
         if (statusF === 'ABSENT') matchStatus = r.statusIn === 'غائبة';
+        if (statusF === 'EARLY') matchStatus = r.statusOut === 'انصراف مبكر';
         return matchQuery && matchStatus;
       });
 
@@ -584,7 +584,7 @@
         if (localStorage.getItem('BOUND_TEACHER_ID') === id) {
           localStorage.removeItem('BOUND_TEACHER_ID');
         }
-        submitServerData({ action: 'adminUnbind', id: id });
+        sendDataToSheet({ action: 'adminUnbind', id: id });
         alert('تم فك ارتباط الجهاز عن المعلمة بنجاح.');
         loadDash();
       }
@@ -593,7 +593,7 @@
     function confirmDeleteTeacher(id, name) {
       if (confirm(`هل أنتِ متأكدة من حذف المعلمة (${name}) نهائياً؟`)) {
         delete TEACHERS_DB[id];
-        submitServerData({ action: 'deleteTeacher', id: id });
+        sendDataToSheet({ action: 'deleteTeacher', id: id });
         alert('تم حذف المعلمة بنجاح.');
         loadDash();
       }
@@ -605,7 +605,7 @@
       if (!name || !id) return alert('الرجاء تعبئة الاسم ورقم الهوية');
 
       TEACHERS_DB[id] = name;
-      submitServerData({ action: 'addTeacher', name: name, id: id });
+      sendDataToSheet({ action: 'addTeacher', name: name, id: id });
       alert('تمت إضافة المعلمة بنجاح');
       closeModal('modalAddTeacher');
       document.getElementById('addName').value = '';
@@ -640,18 +640,10 @@
     function openModal(id) { document.getElementById(id).classList.remove('hidden'); }
     function closeModal(id) { document.getElementById(id).classList.add('hidden'); }
 
-    function savePass() {
-      const n = document.getElementById('pNew').value;
-      if (!n) return alert('أدخل الرمز الجديد');
-      submitServerData({ action: 'changePass', newP: n });
-      alert('تم تحديث كلمة المرور بنجاح');
-      closeModal('modalPass');
-    }
-
     function saveTimesSettings() {
       const tin = document.getElementById('tIn').value;
       const tout = document.getElementById('tOut').value;
-      submitServerData({ action: 'saveTimes', tin: tin, tout: tout });
+      sendDataToSheet({ action: 'saveTimes', tin: tin, tout: tout });
       alert('تم حفظ الأوقات بنجاح');
       closeModal('modalTimes');
     }
