@@ -3,616 +3,194 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>بوابة الحضور والانصراف الذكية - أ. فوزية عبدالله الغامدي</title>
+  <title>بوابة حضور وانصراف المعلمات</title>
   <script src="https://cdn.tailwindcss.com"></script>
   <link href="https://fonts.googleapis.com/css2?family=Tajawal:wght@400;500;700;800;900&display=swap" rel="stylesheet">
-  <script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
-  <style> 
-    body { font-family: 'Tajawal', sans-serif; }
-    @media print {
-      body * { visibility: hidden; }
-      #pdfReportArea, #pdfReportArea * { visibility: visible; }
-      #pdfReportArea { position: absolute; left: 0; top: 0; width: 100%; }
-      .no-print { display: none !important; }
-    }
-  </style>
+  <style> body { font-family: 'Tajawal', sans-serif; } </style>
 </head>
 <body class="bg-slate-100 min-h-screen text-slate-800 flex flex-col justify-between">
 
-  <!-- إطار العمل السحابي المضمون لنقل البيانات من الجوال إلى الشيت -->
-  <iframe name="post_target_frame" id="post_target_frame" style="display:none; width:0; height:0; border:0;"></iframe>
-  <form id="directPostForm" method="POST" action="https://script.google.com/macros/s/AKfycbxiUtk3-gtyAQEqGGvG2ZAKf4tUvF-IkuzN7K2zQ1t6hmsCxI_pgMlDjq0z-h3Czq59HA/exec" target="post_target_frame" style="display:none;">
-    <input type="hidden" name="action" id="p_action">
-    <input type="hidden" name="id" id="p_id">
-    <input type="hidden" name="type" id="p_type">
-    <input type="hidden" name="dev" id="p_dev">
+  <!-- النموذج الخفي المضمون للإرسال من الجوالات -->
+  <iframe name="post_frame" id="post_frame" style="display:none; width:0; height:0;"></iframe>
+  <form id="attendanceForm" method="POST" action="https://script.google.com/macros/s/AKfycbxiUtk3-gtyAQEqGGvG2ZAKf4tUvF-IkuzN7K2zQ1t6hmsCxI_pgMlDjq0z-h3Czq59HA/exec" target="post_frame" style="display:none;">
+    <input type="hidden" name="action" id="f_action">
+    <input type="hidden" name="id" id="f_id">
+    <input type="hidden" name="type" id="f_type">
+    <input type="hidden" name="dev" id="f_dev">
   </form>
 
   <div>
     <!-- Header -->
-    <header class="bg-teal-900 text-white shadow-md sticky top-0 z-30 no-print">
-      <div class="max-w-6xl mx-auto px-4 py-3.5 flex justify-between items-center">
-        <div class="flex items-center gap-3">
+    <header class="bg-teal-900 text-white shadow-md py-4 px-4 text-center">
+      <div class="max-w-md mx-auto flex items-center justify-between">
+        <div class="flex items-center gap-2">
           <div class="p-2 bg-teal-800 rounded-xl">
             <svg class="w-6 h-6 text-teal-300" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>
           </div>
-          <div>
-            <h1 class="text-base md:text-lg font-bold">بوابة الحضور والانصراف</h1>
-            <p class="text-xs text-teal-200" id="clockBox">جاري التحميل...</p>
-          </div>
+          <span class="font-bold text-base">بوابة الحضور والانصراف</span>
         </div>
-        <div class="flex items-center gap-2">
-          <button id="navTeacher" onclick="tab('teacher')" class="px-4 py-2 rounded-xl bg-teal-800 text-white text-xs font-bold transition">تسجيل المعلمة</button>
-          <button id="navAdmin" onclick="tab('admin')" class="px-4 py-2 rounded-xl bg-teal-950/60 text-teal-200 hover:text-white text-xs font-bold transition">لوحة الوكيلة</button>
-        </div>
+        <span class="text-xs text-teal-200" id="clockBox"></span>
       </div>
     </header>
 
-    <main class="max-w-6xl mx-auto p-4 md:p-6">
-      
-      <!-- 1. شاشة تسجيل المعلمة -->
-      <section id="viewTeacher" class="max-w-md mx-auto mt-6">
-        <div class="bg-white rounded-3xl shadow-xl border border-slate-200 p-6 md:p-8">
-          <div class="text-center mb-6">
-            <div class="w-16 h-16 bg-teal-50 text-teal-700 rounded-2xl flex items-center justify-center mx-auto mb-3">
-              <svg class="w-8 h-8" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z"></path></svg>
-            </div>
-            <h2 class="text-2xl font-black text-slate-800">تسجيل الدوام اليومي</h2>
-            <p class="text-xs text-slate-500 mt-1" id="teacherSubtitle">الرجاء إدخال رقم السجل المدني للربط بالجهاز</p>
-          </div>
-
-          <div id="boxInput" class="space-y-4">
-            <div>
-              <label class="block text-xs font-bold text-slate-700 mb-1">رقم الهوية الوطنية</label>
-              <input type="tel" id="inputId" maxlength="10" placeholder="10xxxxxxxx" class="w-full px-4 py-3.5 rounded-2xl border border-slate-300 focus:ring-2 focus:ring-teal-600 focus:outline-none text-center text-xl font-bold tracking-widest text-slate-800">
-            </div>
-            <button onclick="bindAndVerify()" id="btnVerify" class="w-full py-4 bg-teal-700 hover:bg-teal-800 active:scale-95 text-white rounded-2xl font-bold shadow-lg shadow-teal-700/20 transition">
-              ربط الجهاز وتسجيل
-            </button>
-            <div class="p-3 bg-amber-50 border border-amber-200 rounded-xl text-center">
-              <p class="text-[11px] text-amber-800 font-semibold leading-relaxed">
-                🔒 تنبيه: سيتم قفل هذا الجوال على هويتك بقاعدة البيانات لمنع تحضير معلمات أخريات.
-              </p>
-            </div>
-          </div>
-
-          <div id="boxAction" class="hidden space-y-4">
-            <div class="bg-teal-50 border border-teal-200 rounded-2xl p-4 text-center">
-              <span class="text-xs font-bold text-teal-600">أهلاً بك أستاذة</span>
-              <h3 id="tName" class="text-lg font-black text-teal-950 mt-0.5"></h3>
-              <p id="tId" class="text-xs text-teal-600 font-mono mt-0.5"></p>
-              <span class="inline-block mt-2 px-2.5 py-0.5 bg-teal-100 text-teal-800 rounded-full text-[10px] font-bold">🔒 هذا الجهاز موثق لحسابك</span>
-            </div>
-
-            <div class="grid grid-cols-1 gap-3">
-              <button onclick="doRecord('CHECK_IN')" id="btnIn" class="w-full py-4 bg-emerald-600 hover:bg-emerald-700 active:scale-95 text-white rounded-2xl font-bold shadow-md transition flex items-center justify-center gap-2">
-                <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 16l-4-4m0 0l4-4m-4 4h14m-5 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h7a3 3 0 013 3v1"></path></svg>
-                <span>تسجيل حضور صباحي</span>
-              </button>
-
-              <button onclick="doRecord('CHECK_OUT')" id="btnOut" class="w-full py-4 bg-rose-600 hover:bg-rose-700 active:scale-95 text-white rounded-2xl font-bold shadow-md transition flex items-center justify-center gap-2">
-                <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1"></path></svg>
-                <span>تسجيل انصراف</span>
-              </button>
-            </div>
-
-            <div id="msgBox" class="hidden p-3.5 rounded-xl text-xs font-bold text-center"></div>
-          </div>
-        </div>
-      </section>
-
-      <!-- 2. تسجيل دخول الوكيلة -->
-      <section id="viewLogin" class="hidden max-w-sm mx-auto mt-8">
-        <div class="bg-white rounded-3xl shadow-xl border border-slate-200 p-6 md:p-8">
-          <div class="text-center mb-6">
-            <div class="w-14 h-14 bg-slate-100 text-slate-800 rounded-2xl flex items-center justify-center mx-auto mb-3">
-              <svg class="w-7 h-7" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z"></path></svg>
-            </div>
-            <h2 class="text-xl font-black text-slate-800">دخول الإدارة المدرسية</h2>
-            <p class="text-xs text-slate-500 mt-1">الوكيلة: أ. فوزية عبدالله الغامدي</p>
-          </div>
-
-          <div class="space-y-4">
-            <div>
-              <label class="block text-xs font-bold text-slate-700 mb-1">اسم المستخدم</label>
-              <input type="text" id="logUser" value="admin" class="w-full px-4 py-3 rounded-xl border border-slate-300 font-bold text-sm focus:ring-2 focus:ring-teal-700">
-            </div>
-            <div>
-              <label class="block text-xs font-bold text-slate-700 mb-1">كلمة المرور</label>
-              <input type="password" id="logPass" placeholder="••••••" class="w-full px-4 py-3 rounded-xl border border-slate-300 font-bold text-sm focus:ring-2 focus:ring-teal-700">
-            </div>
-            <button onclick="doLogin()" id="btnLogin" class="w-full py-3.5 bg-slate-900 hover:bg-black text-white rounded-xl font-bold text-sm transition">
-              دخول للوحة التحكم
-            </button>
-          </div>
-        </div>
-      </section>
-
-      <!-- 3. لوحة تحكم الوكيلة والتقارير الشاملة -->
-      <section id="viewDash" class="hidden space-y-5">
+    <main class="max-w-md mx-auto p-4 mt-6">
+      <div class="bg-white rounded-3xl shadow-xl border border-slate-200 p-6 md:p-8">
         
-        <div class="bg-white p-4 md:p-5 rounded-2xl shadow-sm border border-slate-200 flex flex-wrap justify-between items-center gap-4 no-print">
-          <div class="flex items-center gap-3">
-            <div class="p-2.5 bg-teal-50 rounded-xl text-teal-800 font-bold">🏫</div>
-            <div>
-              <h3 class="font-bold text-sm md:text-base text-slate-800" id="admTitle">مرحباً بك، أ. فوزية عبدالله الغامدي</h3>
-              <p class="text-xs text-slate-500">لوحة المتابعة اللحظية المركزية (مرتبطة بالسيرفر مباشرة)</p>
-            </div>
+        <div class="text-center mb-6">
+          <div class="w-16 h-16 bg-teal-50 text-teal-700 rounded-2xl flex items-center justify-center mx-auto mb-3">
+            <svg class="w-8 h-8" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z"></path></svg>
           </div>
+          <h2 class="text-2xl font-black text-slate-800">تسجيل الدوام اليومي</h2>
+          <p class="text-xs text-slate-500 mt-1" id="subTitle">الرجاء إدخال رقم السجل المدني للربط بالجهاز</p>
+        </div>
 
-          <div class="flex flex-wrap items-center gap-2">
-            <input type="date" id="qDate" onchange="loadDash()" class="px-3 py-2 border rounded-xl font-bold text-xs text-slate-700">
-            <button onclick="loadDash()" class="px-3 py-2 bg-slate-100 hover:bg-slate-200 rounded-xl text-xs font-bold text-slate-700">🔄 تحديث البيانات</button>
-            <button onclick="openModal('modalRangeReport')" class="px-3 py-2 bg-indigo-700 hover:bg-indigo-800 text-white rounded-xl text-xs font-bold">📅 تقرير بفترة</button>
-            <button onclick="exportCSV()" class="px-3 py-2 bg-emerald-700 hover:bg-emerald-800 text-white rounded-xl text-xs font-bold">📊 Excel</button>
-            <button onclick="exportPDF()" class="px-3 py-2 bg-rose-700 hover:bg-rose-800 text-white rounded-xl text-xs font-bold">📄 PDF</button>
-            <button onclick="window.print()" class="px-3 py-2 bg-cyan-800 hover:bg-cyan-900 text-white rounded-xl text-xs font-bold">🖨️ طباعة</button>
-            <button onclick="doLogout()" class="px-3 py-2 bg-rose-50 text-rose-700 hover:bg-rose-100 rounded-xl text-xs font-bold">خروج</button>
+        <div id="boxInput" class="space-y-4">
+          <div>
+            <label class="block text-xs font-bold text-slate-700 mb-1">رقم الهوية الوطنية</label>
+            <input type="tel" id="inputId" maxlength="10" placeholder="10xxxxxxxx" class="w-full px-4 py-3.5 rounded-2xl border border-slate-300 focus:ring-2 focus:ring-teal-600 focus:outline-none text-center text-xl font-bold tracking-widest text-slate-800">
+          </div>
+          <button onclick="bindTeacher()" id="btnVerify" class="w-full py-4 bg-teal-700 hover:bg-teal-800 active:scale-95 text-white rounded-2xl font-bold shadow-lg shadow-teal-700/20 transition">
+            ربط الجهاز وتسجيل
+          </button>
+          <div class="p-3 bg-amber-50 border border-amber-200 rounded-xl text-center">
+            <p class="text-[11px] text-amber-800 font-semibold leading-relaxed">
+              🔒 تنبيه: سيتم قفل هذا الجوال على هويتك لمنع تحضير معلمات أخريات من نفس الجهاز.
+            </p>
           </div>
         </div>
 
-        <div id="pdfReportArea" class="space-y-5 bg-white p-4 md:p-6 rounded-2xl border border-slate-200 shadow-sm">
-          
-          <div class="border-b pb-4 mb-2 flex justify-between items-center">
-            <div>
-              <h2 class="text-xl font-black text-teal-950" id="reportMainHeading">تقرير متابعة الحضور والانصراف اليومي</h2>
-              <p class="text-xs text-slate-500 mt-1">الفترة / التاريخ: <span id="reportDateTxt" class="font-bold text-slate-800"></span></p>
-            </div>
-            <div class="text-left">
-              <span class="text-xs font-bold text-slate-400 block">إشراف الوكيلة</span>
-              <span class="text-sm font-black text-teal-900">أ. فوزية عبدالله الغامدي</span>
-            </div>
+        <div id="boxAction" class="hidden space-y-4">
+          <div class="bg-teal-50 border border-teal-200 rounded-2xl p-4 text-center">
+            <span class="text-xs font-bold text-teal-600">أهلاً بك أستاذة</span>
+            <h3 id="tName" class="text-lg font-black text-teal-950 mt-0.5"></h3>
+            <p id="tId" class="text-xs text-teal-600 font-mono mt-0.5"></p>
+            <span class="inline-block mt-2 px-2.5 py-0.5 bg-teal-100 text-teal-800 rounded-full text-[10px] font-bold">🔒 هذا الجهاز موثق لحسابك</span>
           </div>
 
-          <div id="kpiCardsArea" class="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3">
-            <div class="bg-slate-50 p-3.5 rounded-xl border border-slate-200 text-center">
-              <span class="text-[11px] font-bold text-slate-500">إجمالي المعلمات</span>
-              <p id="numTotal" class="text-xl font-black text-slate-800 mt-1">31</p>
-            </div>
-            <div class="bg-emerald-50/60 p-3.5 rounded-xl border border-emerald-200 text-center">
-              <span class="text-[11px] font-bold text-emerald-700">حضور بالموعد</span>
-              <p id="numOnTime" class="text-xl font-black text-emerald-700 mt-1">0</p>
-            </div>
-            <div class="bg-amber-50/60 p-3.5 rounded-xl border border-amber-200 text-center">
-              <span class="text-[11px] font-bold text-amber-700">حضور متأخر</span>
-              <p id="numLate" class="text-xl font-black text-amber-700 mt-1">0</p>
-            </div>
-            <div class="bg-rose-50/60 p-3.5 rounded-xl border border-rose-200 text-center">
-              <span class="text-[11px] font-bold text-rose-700">غائبات</span>
-              <p id="numAbsent" class="text-xl font-black text-rose-700 mt-1">31</p>
-            </div>
-            <div class="bg-blue-50/60 p-3.5 rounded-xl border border-blue-200 text-center">
-              <span class="text-[11px] font-bold text-blue-700">انصراف نظامي</span>
-              <p id="numCheckedOut" class="text-xl font-black text-blue-700 mt-1">0</p>
-            </div>
-            <div class="bg-purple-50/60 p-3.5 rounded-xl border border-purple-200 text-center">
-              <span class="text-[11px] font-bold text-purple-700">انصراف مبكر</span>
-              <p id="numEarlyOut" class="text-xl font-black text-purple-700 mt-1">0</p>
-            </div>
+          <div class="grid grid-cols-1 gap-3">
+            <button onclick="recordTime('CHECK_IN')" id="btnIn" class="w-full py-4 bg-emerald-600 hover:bg-emerald-700 active:scale-95 text-white rounded-2xl font-bold shadow-md transition flex items-center justify-center gap-2">
+              <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 16l-4-4m0 0l4-4m-4 4h14m-5 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h7a3 3 0 013 3v1"></path></svg>
+              <span>تسجيل حضور صباحي</span>
+            </button>
+
+            <button onclick="recordTime('CHECK_OUT')" id="btnOut" class="w-full py-4 bg-rose-600 hover:bg-rose-700 active:scale-95 text-white rounded-2xl font-bold shadow-md transition flex items-center justify-center gap-2">
+              <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1"></path></svg>
+              <span>تسجيل انصراف</span>
+            </button>
           </div>
 
-          <div class="overflow-hidden border border-slate-200 rounded-xl mt-4">
-            <div class="p-3 bg-slate-50 border-b border-slate-200 flex justify-between items-center no-print">
-              <div class="flex items-center gap-2">
-                <span class="text-xs font-bold text-slate-700">تصفية العرض:</span>
-                <select id="filterStatus" onchange="filterTbl()" class="text-xs border rounded-lg p-1.5 font-bold text-slate-700 bg-white">
-                  <option value="ALL">جميع السجلات</option>
-                  <option value="ONTIME">حضور في الموعد</option>
-                  <option value="LATE">متأخرات</option>
-                  <option value="ABSENT">غائبات</option>
-                </select>
-              </div>
-              <input type="text" id="srch" onkeyup="filterTbl()" placeholder="بحث بالاسم أو الهوية..." class="px-3 py-1.5 border rounded-lg text-xs w-48 bg-white">
-            </div>
-
-            <div class="overflow-x-auto">
-              <table class="w-full text-right text-xs" id="mainTbl">
-                <thead class="bg-slate-100 text-slate-700 font-bold border-b border-slate-200">
-                  <tr>
-                    <th class="p-2.5">#</th>
-                    <th class="p-2.5">التاريخ</th>
-                    <th class="p-2.5">اسم المعلمة</th>
-                    <th class="p-2.5">رقم الهوية</th>
-                    <th class="p-2.5">وقت الحضور</th>
-                    <th class="p-2.5">حالة الحضور</th>
-                    <th class="p-2.5">وقت الانصراف</th>
-                    <th class="p-2.5">حالة الانصراف</th>
-                    <th class="p-2.5">ساعات العمل</th>
-                    <th class="p-2.5 text-center no-print">إجراءات الوكيلة</th>
-                  </tr>
-                </thead>
-                <tbody id="tblBody" class="divide-y divide-slate-200"></tbody>
-              </table>
-            </div>
-          </div>
+          <div id="msgBox" class="hidden p-3.5 rounded-xl text-xs font-bold text-center"></div>
         </div>
-      </section>
 
+      </div>
     </main>
   </div>
 
-  <!-- Footer -->
-  <footer class="mt-10 py-5 bg-gradient-to-r from-teal-950 via-teal-900 to-teal-950 text-white text-center border-t-2 border-teal-700/50 shadow-inner no-print">
-    <div class="max-w-6xl mx-auto px-4 flex flex-col md:flex-row justify-between items-center gap-2">
-      <div class="flex items-center gap-2 mx-auto md:mx-0">
-        <span class="p-1.5 bg-teal-800/80 rounded-lg text-teal-300">💡</span>
-        <p class="text-xs md:text-sm font-black tracking-wide text-teal-100">
-          هذا الموقع من ابتكار وتصميم وكيلة المدرسة الأستاذة: <span class="text-teal-300 underline underline-offset-4 font-black">فوزية عبدالله الغامدي</span>
-        </p>
-      </div>
-      <p class="text-[11px] text-teal-300/80 font-medium">جميع الحقوق محفوظة © 2026</p>
-    </div>
+  <footer class="py-4 bg-teal-950 text-white text-center border-t border-teal-800">
+    <p class="text-xs text-teal-200">
+      هذا الموقع من ابتكار وتصميم وكيلة المدرسة الأستاذة: <span class="text-teal-300 font-bold underline">فوزية عبدالله الغامدي</span>
+    </p>
   </footer>
-
-  <!-- Modal تقرير محدد بفترة -->
-  <div id="modalRangeReport" class="hidden fixed inset-0 bg-black/60 z-50 flex items-center justify-center p-4">
-    <div class="bg-white rounded-2xl max-w-sm w-full p-5 space-y-4 shadow-2xl">
-      <h3 class="font-bold text-sm text-slate-800">📅 استخراج تقرير بفترة زمنية محددة</h3>
-      <div>
-        <label class="block text-xs font-bold text-slate-600 mb-1">من تاريخ</label>
-        <input type="date" id="repFromDate" class="w-full border p-2 rounded-xl text-xs font-bold">
-      </div>
-      <div>
-        <label class="block text-xs font-bold text-slate-600 mb-1">إلى تاريخ</label>
-        <input type="date" id="repToDate" class="w-full border p-2 rounded-xl text-xs font-bold">
-      </div>
-      <div class="flex justify-end gap-2 pt-2">
-        <button onclick="closeModal('modalRangeReport')" class="px-3 py-1.5 text-xs text-slate-500">إلغاء</button>
-        <button onclick="generateRangeReport()" class="px-4 py-2 bg-indigo-700 text-white rounded-xl text-xs font-bold">عرض التقرير</button>
-      </div>
-    </div>
-  </div>
 
   <script>
     const API_URL = "https://script.google.com/macros/s/AKfycbxiUtk3-gtyAQEqGGvG2ZAKf4tUvF-IkuzN7K2zQ1t6hmsCxI_pgMlDjq0z-h3Czq59HA/exec";
 
-    const TEACHERS_DB = {
-      "1022369092": "صالحه نجدي مناحي البلوي",
-      "1059648780": "هويدا منصور سعيد الصحفي",
-      "1047002900": "هناء المدي خلف الرويلي",
-      "1059924199": "فاديه عبدالعزيز مهنا الجهني",
-      "1037037338": "مها قاسم محمد الرويلي",
-      "1159663960": "حنان جابر محيلان الرويلي",
-      "1010576831": "الفت رجاء دخيل الله الصعيدي",
-      "1021167703": "عبير علي عواد العطوي",
-      "1049056573": "مليحه سويد غانم الشراري",
-      "1094291067": "ليالي مصلح مليح العازمي",
-      "1078763156": "نجود خالد جمعه البغدادي",
-      "1078451927": "غاليه عطالله اديلم الشراري",
-      "1039434392": "فضيه دبيان حمدان الشرارى",
-      "1068465911": "رشا سليمان شلاح العتيبي",
-      "1050081528": "أريج هويمل سالم الحويطي",
-      "1116712413": "مها عبدالحكيم محمد العنزي",
-      "1046134183": "نشمية راضي محمد الشراري",
-      "1065390724": "فاطمه مسفر سالم القحطاني",
-      "1038482848": "بسمة مضحي شاقي العنزي",
-      "1046234306": "علياء خليف براك الشراري",
-      "1020723274": "تهاني سليمان محمد الشراري",
-      "1028943767": "ولاء عبدالرزاق بن محمدبكر هوساوي",
-      "1065210757": "بشاير بخيت عطيه السلمي",
-      "1014740672": "البندري محمد خلف الشمري",
-      "1064013350": "منيفة خلف عشوي العنزي",
-      "1014392128": "مريم حسين عبدالله العازمي",
-      "1051186144": "سعيده رضيمان فرج البلوي",
-      "1064358995": "نوار حميد مريشد العوفي",
-      "1022561953": "مها معاشي بن عبيدان العنزي",
-      "1030634933": "دلال شرف عيضه السيالي",
+    const TEACHERS = {
+      "1022369092": "صالحه نجدي مناحي البلوي", "1059648780": "هويدا منصور سعيد الصحفي",
+      "1047002900": "هناء المدي خلف الرويلي", "1059924199": "فاديه عبدالعزيز مهنا الجهني",
+      "1037037338": "مها قاسم محمد الرويلي", "1159663960": "حنان جابر محيلان الرويلي",
+      "1010576831": "الفت رجاء دخيل الله الصعيدي", "1021167703": "عبير علي عواد العطوي",
+      "1049056573": "مليحه سويد غانم الشراري", "1094291067": "ليالي مصلح مليح العازمي",
+      "1078763156": "نجود خالد جمعه البغدادي", "1078451927": "غاليه عطالله اديلم الشراري",
+      "1039434392": "فضيه دبيان حمدان الشرارى", "1068465911": "رشا سليمان شلاح العتيبي",
+      "1050081528": "أريج هويمل سالم الحويطي", "1116712413": "مها عبدالحكيم محمد العنزي",
+      "1046134183": "نشمية راضي محمد الشراري", "1065390724": "فاطمه مسفر سالم القحطاني",
+      "1038482848": "بسمة مضحي شاقي العنزي", "1046234306": "علياء خليف براك الشراري",
+      "1020723274": "تهاني سليمان محمد الشراري", "1028943767": "ولاء عبدالرزاق بن محمدبكر هوساوي",
+      "1065210757": "بشاير بخيت عطيه السلمي", "1014740672": "البندري محمد خلف الشمري",
+      "1064013350": "منيفة خلف عشوي العنزي", "1014392128": "مريم حسين عبدالله العازمي",
+      "1051186144": "سعيده رضيمان فرج البلوي", "1064358995": "نوار حميد مريشد العوفي",
+      "1022561953": "مها معاشي بن عبيدان العنزي", "1030634933": "دلال شرف عيضه السيالي",
       "1060888847": "منال سعيد بن ربيع الصاعدي"
     };
 
-    function getDeviceUUID() {
-      let d = localStorage.getItem('DEV_UUID_V8');
+    function getUUID() {
+      let d = localStorage.getItem('TEACHER_DEV_UUID');
       if (!d) {
         d = 'DEV_' + Math.random().toString(36).substring(2, 10) + '_' + Date.now();
-        localStorage.setItem('DEV_UUID_V8', d);
+        localStorage.setItem('TEACHER_DEV_UUID', d);
       }
       return d;
     }
 
-    let curTeacher = null;
-    let isAdmin = false;
-    let cachedList = [];
-
-    // محرك إرسال مباشر موثوق عبر النموذج والإطار الخفي
-    function sendPayload(action, id, type) {
-      document.getElementById('p_action').value = action;
-      document.getElementById('p_id').value = id || '';
-      document.getElementById('p_type').value = type || '';
-      document.getElementById('p_dev').value = getDeviceUUID();
-      document.getElementById('directPostForm').submit();
-    }
-
-    // جلب البيانات من السيرفر مباشرة عبر JSONP
-    function fetchFromServer(params, callback) {
-      const cbName = 'jsonp_feed_' + Math.round(1000000 * Math.random());
-      params.callback = cbName;
-      params._t = Date.now();
-
-      const q = new URLSearchParams(params).toString();
-      const s = document.createElement('script');
-      s.src = `${API_URL}?${q}`;
-
-      let done = false;
-      const timer = setTimeout(() => {
-        if (!done) {
-          done = true;
-          delete window[cbName];
-          if (document.body.contains(s)) document.body.removeChild(s);
-          if (callback) callback(null);
-        }
-      }, 12000);
-
-      window[cbName] = function(res) {
-        if (!done) {
-          done = true;
-          clearTimeout(timer);
-          delete window[cbName];
-          if (document.body.contains(s)) document.body.removeChild(s);
-          if (callback) callback(res);
-        }
-      };
-
-      s.onerror = function() {
-        if (!done) {
-          done = true;
-          clearTimeout(timer);
-          delete window[cbName];
-          if (document.body.contains(s)) document.body.removeChild(s);
-          if (callback) callback(null);
-        }
-      };
-
-      document.body.appendChild(s);
-    }
+    let curId = null;
 
     function liveTime() {
       const now = new Date();
-      document.getElementById('clockBox').innerText = now.toLocaleDateString('ar-SA', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' }) + ' | ' + now.toLocaleTimeString('ar-SA');
+      document.getElementById('clockBox').innerText = now.toLocaleTimeString('ar-SA', { hour: '2-digit', minute: '2-digit' });
     }
     setInterval(liveTime, 1000);
     liveTime();
 
     window.addEventListener('DOMContentLoaded', () => {
-      const boundId = localStorage.getItem('BOUND_TEACHER_ID');
-      if (boundId && TEACHERS_DB[boundId]) {
-        curTeacher = { nationalId: boundId, name: TEACHERS_DB[boundId] };
-        showTeacherDashboard();
+      const savedId = localStorage.getItem('MY_SAVED_TEACHER_ID');
+      if (savedId && TEACHERS[savedId]) {
+        curId = savedId;
+        showDashboard(savedId, TEACHERS[savedId]);
       }
     });
 
-    function bindAndVerify() {
+    function bindTeacher() {
       const id = document.getElementById('inputId').value.trim();
       if (!id) return alert('الرجاء إدخال رقم الهوية');
+      if (!TEACHERS[id]) return alert('رقم الهوية غير مسجل في النظام');
 
-      const name = TEACHERS_DB[id];
-      if (!name) return alert('رقم الهوية غير مسجل في النظام');
+      localStorage.setItem('MY_SAVED_TEACHER_ID', id);
+      curId = id;
+      showDashboard(id, TEACHERS[id]);
 
-      localStorage.setItem('BOUND_TEACHER_ID', id);
-      curTeacher = { nationalId: id, name: name };
-      showTeacherDashboard();
-
-      // إرسال التوثيق للسيرفر والشيت
-      sendPayload('verify', id, '');
+      // إرسال الربط للسيرفر
+      sendToServer('verify', id, '');
     }
 
-    function showTeacherDashboard() {
+    function showDashboard(id, name) {
       document.getElementById('boxInput').classList.add('hidden');
       document.getElementById('boxAction').classList.remove('hidden');
-      document.getElementById('teacherSubtitle').innerText = 'تم ربط هذا الجهاز بحسابك';
-      document.getElementById('tName').innerText = curTeacher.name;
-      document.getElementById('tId').innerText = 'السجل المدني: ' + curTeacher.nationalId;
-
-      const box = document.getElementById('msgBox');
-      box.classList.remove('hidden');
-      box.className = "p-3 rounded-xl text-xs font-bold bg-amber-50 text-amber-800 border border-amber-200";
-      box.innerText = 'جاهز لتسجيل الحضور / الانصراف اليوم';
+      document.getElementById('subTitle').innerText = 'تم ربط هذا الجهاز بحسابك';
+      document.getElementById('tName').innerText = name;
+      document.getElementById('tId').innerText = 'السجل المدني: ' + id;
     }
 
-    function doRecord(type) {
-      if (!curTeacher) return;
+    function sendToServer(action, id, type) {
+      document.getElementById('f_action').value = action;
+      document.getElementById('f_id').value = id;
+      document.getElementById('f_type').value = type;
+      document.getElementById('f_dev').value = getUUID();
+      document.getElementById('attendanceForm').submit();
+    }
+
+    function recordTime(type) {
+      if (!curId) return;
       const btn = type === 'CHECK_IN' ? document.getElementById('btnIn') : document.getElementById('btnOut');
       const oldTxt = btn.innerText;
-      btn.innerText = 'جاري الحفظ في الشيت...';
+      btn.innerText = 'جاري التسجيل في الشيت...';
       btn.disabled = true;
 
       const now = new Date();
-      const timeDisplay = now.toLocaleTimeString('ar-SA', { hour: '2-digit', minute: '2-digit' });
+      const timeStr = now.toLocaleTimeString('ar-SA', { hour: '2-digit', minute: '2-digit' });
 
-      // إرسال فوري يكتب مباشرة في Google Sheet
-      sendPayload('record', curTeacher.nationalId, type);
+      // إرسال يكتب فوراً في Google Sheet
+      sendToServer('record', curId, type);
 
       setTimeout(() => {
         btn.innerText = oldTxt;
         btn.disabled = false;
         const box = document.getElementById('msgBox');
         box.classList.remove('hidden');
-        box.className = "p-3 rounded-xl text-xs font-bold bg-emerald-100 text-emerald-900 border border-emerald-300";
-        box.innerText = (type === 'CHECK_IN' ? 'تم تسجيل حضورك بنجاح' : 'تم تسجيل انصرافك بنجاح') + ' - الساعة ' + timeDisplay;
-      }, 600);
+        box.className = "p-3.5 rounded-xl text-xs font-bold bg-emerald-100 text-emerald-900 border border-emerald-300";
+        box.innerText = (type === 'CHECK_IN' ? 'تم تسجيل حضورك بنجاح' : 'تم تسجيل انصرافك بنجاح') + ' - الساعة ' + timeStr;
+      }, 700);
     }
-
-    function tab(target) {
-      document.getElementById('viewTeacher').classList.add('hidden');
-      document.getElementById('viewLogin').classList.add('hidden');
-      document.getElementById('viewDash').classList.add('hidden');
-
-      if (target === 'teacher') {
-        document.getElementById('viewTeacher').classList.remove('hidden');
-        document.getElementById('navTeacher').className = "px-4 py-2 rounded-xl bg-teal-800 text-white text-xs font-bold transition";
-        document.getElementById('navAdmin').className = "px-4 py-2 rounded-xl bg-teal-950/60 text-teal-200 text-xs font-bold transition";
-      } else {
-        document.getElementById('navAdmin').className = "px-4 py-2 rounded-xl bg-teal-800 text-white text-xs font-bold transition";
-        document.getElementById('navTeacher').className = "px-4 py-2 rounded-xl bg-teal-950/60 text-teal-200 text-xs font-bold transition";
-        if (isAdmin) {
-          document.getElementById('viewDash').classList.remove('hidden');
-          loadDash();
-        } else {
-          document.getElementById('viewLogin').classList.remove('hidden');
-        }
-      }
-    }
-
-    function doLogin() {
-      const u = document.getElementById('logUser').value.trim();
-      const p = document.getElementById('logPass').value.trim();
-
-      if (u === 'admin' && (p === '123456' || p === 'admin')) {
-        isAdmin = true;
-        document.getElementById('admTitle').innerText = 'مرحباً بك، أ. فوزية عبدالله الغامدي';
-        document.getElementById('viewLogin').classList.add('hidden');
-        document.getElementById('viewDash').classList.remove('hidden');
-        loadDash();
-      } else {
-        alert('بيانات الدخول غير صحيحة');
-      }
-    }
-
-    function doLogout() {
-      isAdmin = false;
-      document.getElementById('logPass').value = '';
-      tab('teacher');
-    }
-
-    // قراءة البيانات المركزية الحية من Google Sheet
-    function loadDash() {
-      const d = document.getElementById('qDate').value || new Date().toISOString().slice(0,10);
-      document.getElementById('qDate').value = d;
-      document.getElementById('reportDateTxt').innerText = d;
-      document.getElementById('reportMainHeading').innerText = 'تقرير متابعة الحضور والانصراف اليومي';
-      document.getElementById('kpiCardsArea').classList.remove('hidden');
-
-      fetchFromServer({ action: 'dashboard', date: d }, function(res) {
-        if (res && res.success && res.list) {
-          document.getElementById('numTotal').innerText = res.stats.total;
-          document.getElementById('numOnTime').innerText = res.stats.onTime;
-          document.getElementById('numLate').innerText = res.stats.late;
-          document.getElementById('numAbsent').innerText = res.stats.absent;
-          document.getElementById('numCheckedOut').innerText = res.stats.checkedOut;
-          document.getElementById('numEarlyOut').innerText = res.stats.earlyOut;
-          cachedList = res.list.map(x => ({ ...x, date: d }));
-          renderTable(cachedList);
-        } else {
-          // عرض القائمة المبدئية
-          let emptyList = [];
-          for (let id in TEACHERS_DB) {
-            emptyList.push({ date: d, id: id, name: TEACHERS_DB[id], checkIn: '-', statusIn: 'غائبة', checkOut: '-', statusOut: '-', workHours: '-' });
-          }
-          cachedList = emptyList;
-          renderTable(cachedList);
-        }
-      });
-    }
-
-    function generateRangeReport() {
-      const fromD = document.getElementById('repFromDate').value;
-      const toD = document.getElementById('repToDate').value;
-      if (!fromD || !toD) return alert('الرجاء اختيار تاريخ البداية والنهاية');
-
-      document.getElementById('reportMainHeading').innerText = `تقرير الحضور والانصراف للفترة من (${fromD}) إلى (${toD})`;
-      document.getElementById('reportDateTxt').innerText = `من ${fromD} إلى ${toD}`;
-      document.getElementById('kpiCardsArea').classList.add('hidden');
-      closeModal('modalRangeReport');
-
-      fetchFromServer({ action: 'dashboard', startDate: fromD, endDate: toD }, function(res) {
-        if (res && res.success && res.list) {
-          cachedList = res.list;
-          renderTable(cachedList);
-        } else {
-          alert('لا توجد سجلات مسجلة لهذه الفترة');
-        }
-      });
-    }
-
-    function renderTable(list) {
-      const body = document.getElementById('tblBody');
-      body.innerHTML = '';
-      if (!list || list.length === 0) {
-        body.innerHTML = '<tr><td colspan="10" class="p-4 text-center text-slate-400 font-bold">لا توجد حركات مسجلة لهذه الفترة</td></tr>';
-        return;
-      }
-      list.forEach((r, idx) => {
-        let badge = '<span class="px-2 py-0.5 bg-rose-100 text-rose-800 rounded font-bold">غائبة</span>';
-        if (r.statusIn === 'حضور في الموعد') badge = '<span class="px-2 py-0.5 bg-emerald-100 text-emerald-800 rounded font-bold">في الموعد</span>';
-        if (r.statusIn === 'حضور متأخر') badge = `<span class="px-2 py-0.5 bg-amber-100 text-amber-800 rounded font-bold">متأخر</span>`;
-
-        let badgeOut = `<span class="text-slate-400">${r.statusOut || '-'}</span>`;
-        if (r.statusOut === 'انصراف نظامي') badgeOut = '<span class="px-2 py-0.5 bg-blue-100 text-blue-800 rounded font-bold">نظامي</span>';
-        if (r.statusOut === 'انصراف مبكر') badgeOut = '<span class="px-2 py-0.5 bg-purple-100 text-purple-800 rounded font-bold">مبكر</span>';
-
-        let deviceBtn = `<button onclick="adminUnbindTeacher('${r.id}', '${r.name}')" class="p-1 bg-amber-100 hover:bg-amber-200 text-amber-900 rounded text-[11px] font-bold">🔓 فك قفل الجهاز</button>`;
-
-        body.innerHTML += `
-          <tr class="hover:bg-slate-50 transition border-b border-slate-200">
-            <td class="p-2.5 font-bold text-slate-400">${idx + 1}</td>
-            <td class="p-2.5 font-mono text-slate-600">${r.date || document.getElementById('qDate').value}</td>
-            <td class="p-2.5 font-bold text-slate-800">${r.name}</td>
-            <td class="p-2.5 font-mono text-slate-500">${r.id}</td>
-            <td class="p-2.5 font-semibold text-slate-700">${r.checkIn}</td>
-            <td class="p-2.5">${badge}</td>
-            <td class="p-2.5 font-semibold text-slate-700">${r.checkOut}</td>
-            <td class="p-2.5">${badgeOut}</td>
-            <td class="p-2.5 font-bold text-teal-700">${r.workHours || '-'}</td>
-            <td class="p-2.5 text-center no-print">
-              ${deviceBtn}
-            </td>
-          </tr>
-        `;
-      });
-    }
-
-    function filterTbl() {
-      const q = document.getElementById('srch').value.toLowerCase();
-      const statusF = document.getElementById('filterStatus').value;
-
-      const filtered = cachedList.filter(r => {
-        const matchQuery = r.name.toLowerCase().includes(q) || r.id.includes(q);
-        let matchStatus = true;
-        if (statusF === 'ONTIME') matchStatus = r.statusIn === 'حضور في الموعد';
-        if (statusF === 'LATE') matchStatus = r.statusIn === 'حضور متأخر';
-        if (statusF === 'ABSENT') matchStatus = r.statusIn === 'غائبة';
-        return matchQuery && matchStatus;
-      });
-
-      renderTable(filtered);
-    }
-
-    function adminUnbindTeacher(id, name) {
-      if (confirm(`هل ترغبين بفك قفل الجهاز للمعلمة (${name}) في قاعدة البيانات السحابية؟`)) {
-        if (localStorage.getItem('BOUND_TEACHER_ID') === id) {
-          localStorage.removeItem('BOUND_TEACHER_ID');
-        }
-        sendPayload('adminUnbind', id, '');
-        alert('تم فك ارتباط الجهاز بنجاح.');
-        setTimeout(loadDash, 1000);
-      }
-    }
-
-    function exportCSV() {
-      let csv = "\uFEFFالتاريخ,اسم المعلمة,رقم الهوية,وقت الحضور,حالة الحضور,وقت الانصراف,حالة الانصراف,ساعات العمل\n";
-      cachedList.forEach(r => {
-        csv += `"${r.date || ''}","${r.name}","${r.id}","${r.checkIn}","${r.statusIn}","${r.checkOut}","${r.statusOut}","${r.workHours || ''}"\n`;
-      });
-      const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
-      const link = document.createElement("a");
-      link.href = URL.createObjectURL(blob);
-      link.download = `تقرير_دوام_المعلمات.csv`;
-      link.click();
-    }
-
-    function exportPDF() {
-      const element = document.getElementById('pdfReportArea');
-      const opt = {
-        margin: [10, 10, 10, 10],
-        filename: `تقرير_دوام_المعلمات.pdf`,
-        image: { type: 'jpeg', quality: 0.98 },
-        html2canvas: { scale: 2, useCORS: true },
-        jsPDF: { unit: 'mm', format: 'a4', orientation: 'portrait' }
-      };
-      html2pdf().set(opt).from(element).save();
-    }
-
-    function openModal(id) { document.getElementById(id).classList.remove('hidden'); }
-    function closeModal(id) { document.getElementById(id).classList.add('hidden'); }
   </script>
 </body>
 </html>
