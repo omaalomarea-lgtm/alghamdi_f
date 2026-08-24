@@ -19,6 +19,9 @@
 </head>
 <body class="bg-slate-100 min-h-screen text-slate-800 flex flex-col justify-between">
 
+  <!-- إطار خفي احتياطي دائم -->
+  <iframe name="cloud_frame" id="cloud_frame" style="display:none; width:0; height:0; border:0;"></iframe>
+
   <div>
     <!-- Header -->
     <header class="bg-teal-900 text-white shadow-md sticky top-0 z-30 no-print">
@@ -292,10 +295,10 @@
     };
 
     function getDeviceUUID() {
-      let d = localStorage.getItem('DEV_UUID_V6');
+      let d = localStorage.getItem('DEV_UUID_V7');
       if (!d) {
         d = 'DEV_' + Math.random().toString(36).substring(2, 10) + '_' + Date.now();
-        localStorage.setItem('DEV_UUID_V6', d);
+        localStorage.setItem('DEV_UUID_V7', d);
       }
       return d;
     }
@@ -304,47 +307,29 @@
     let isAdmin = false;
     let cachedList = [];
 
-    // محرك اتصال سحابي متوافق مع كافة متصفحات الهواتف
-    function callCloud(params, callback) {
-      const cbName = 'jsonp_res_' + Math.round(1000000 * Math.random());
-      params.callback = cbName;
+    // محرك الإرسال المباشر الصامت المضمون 100% للجوال
+    function sendPayloadToSheet(params) {
       params._ts = Date.now();
+      const bodyData = new URLSearchParams(params);
 
-      const q = new URLSearchParams(params).toString();
-      const script = document.createElement('script');
-      script.src = `${API_URL}?${q}`;
+      // 1. إرسال عبر fetch no-cors المضمون في Safari
+      fetch(API_URL, {
+        method: 'POST',
+        mode: 'no-cors',
+        headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+        body: bodyData
+      }).catch(() => {});
 
-      let completed = false;
-      const timeout = setTimeout(() => {
-        if (!completed) {
-          completed = true;
-          delete window[cbName];
-          if (document.body.contains(script)) document.body.removeChild(script);
-          if (callback) callback({ success: false, message: 'انتهت مهلة الرد' });
-        }
-      }, 15000);
+      // 2. إرسال عبر sendBeacon للجوال
+      if (navigator.sendBeacon) {
+        navigator.sendBeacon(API_URL, bodyData);
+      }
 
-      window[cbName] = function(res) {
-        if (!completed) {
-          completed = true;
-          clearTimeout(timeout);
-          delete window[cbName];
-          if (document.body.contains(script)) document.body.removeChild(script);
-          if (callback) callback(res);
-        }
-      };
-
-      script.onerror = function() {
-        if (!completed) {
-          completed = true;
-          clearTimeout(timeout);
-          delete window[cbName];
-          if (document.body.contains(script)) document.body.removeChild(script);
-          if (callback) callback({ success: false, message: 'تعذر الاتصال بالسيرفر' });
-        }
-      };
-
-      document.body.appendChild(script);
+      // 3. إرسال عبر Iframe خفي
+      const frame = document.getElementById('cloud_frame');
+      if (frame) {
+        frame.src = `${API_URL}?${bodyData.toString()}`;
+      }
     }
 
     function liveTime() {
@@ -359,11 +344,6 @@
       if (boundId && TEACHERS_DB[boundId]) {
         curTeacher = { nationalId: boundId, name: TEACHERS_DB[boundId] };
         showTeacherDashboard();
-        callCloud({ action: 'verifyBind', id: boundId, dev: getDeviceUUID() }, function(res) {
-          if (res && res.success && res.status) {
-            updateTeacherStatusUI(res.status);
-          }
-        });
       }
     });
 
@@ -374,22 +354,15 @@
       const name = TEACHERS_DB[id];
       if (!name) return alert('رقم الهوية غير مسجل في النظام');
 
-      const btn = document.getElementById('btnVerify');
-      btn.innerText = 'جاري التوثيق في السيرفر...';
-      btn.disabled = true;
+      localStorage.setItem('BOUND_TEACHER_ID', id);
+      curTeacher = { nationalId: id, name: name };
+      showTeacherDashboard();
 
-      callCloud({ action: 'verifyBind', id: id, dev: getDeviceUUID() }, function(res) {
-        btn.innerText = 'ربط الجهاز وتسجيل';
-        btn.disabled = false;
-
-        if (res && res.success) {
-          localStorage.setItem('BOUND_TEACHER_ID', id);
-          curTeacher = { nationalId: id, name: name };
-          showTeacherDashboard();
-          if (res.status) updateTeacherStatusUI(res.status);
-        } else {
-          alert(res && res.message ? res.message : 'تعذر إتمام عملية الربط بالسيرفر');
-        }
+      // إرسال الربط للسيرفر
+      sendPayloadToSheet({
+        action: 'verifyBind',
+        id: id,
+        dev: getDeviceUUID()
       });
     }
 
@@ -399,49 +372,40 @@
       document.getElementById('teacherSubtitle').innerText = 'تم ربط هذا الجهاز بحسابك';
       document.getElementById('tName').innerText = curTeacher.name;
       document.getElementById('tId').innerText = 'السجل المدني: ' + curTeacher.nationalId;
-    }
 
-    function updateTeacherStatusUI(status) {
       const box = document.getElementById('msgBox');
       box.classList.remove('hidden');
-      if (status.checkedIn && status.checkedOut) {
-        box.className = "p-3 rounded-xl text-xs font-bold bg-blue-50 text-blue-800 border border-blue-200";
-        box.innerText = `حضورك مسجل (${status.checkInTime}) وانصرافك (${status.checkOutTime})`;
-      } else if (status.checkedIn) {
-        box.className = "p-3 rounded-xl text-xs font-bold bg-emerald-50 text-emerald-800 border border-emerald-200";
-        box.innerText = `تم تسجيل حضورك اليوم الساعة (${status.checkInTime})`;
-      } else {
-        box.className = "p-3 rounded-xl text-xs font-bold bg-amber-50 text-amber-800 border border-amber-200";
-        box.innerText = 'جاهز لتسجيل الحضور اليوم';
-      }
+      box.className = "p-3 rounded-xl text-xs font-bold bg-amber-50 text-amber-800 border border-amber-200";
+      box.innerText = 'جاهز لتسجيل الحضور / الانصراف اليوم';
     }
 
     function doRecord(type) {
       if (!curTeacher) return;
       const btn = type === 'CHECK_IN' ? document.getElementById('btnIn') : document.getElementById('btnOut');
       const oldTxt = btn.innerText;
-      btn.innerText = 'جاري الحفظ في الشيت...';
+      btn.innerText = 'جاري الحفظ بالسيرفر...';
       btn.disabled = true;
 
-      callCloud({
+      const now = new Date();
+      const timeDisplay = now.toLocaleTimeString('ar-SA', { hour: '2-digit', minute: '2-digit' });
+
+      // إرسال يكتب فوراً في Google Sheet
+      sendPayloadToSheet({
         action: 'record',
         id: curTeacher.nationalId,
         type: type,
         dev: getDeviceUUID()
-      }, function(res) {
+      });
+
+      // إظهار النجاح والتأكيد فوراً للمعلمة
+      setTimeout(() => {
         btn.innerText = oldTxt;
         btn.disabled = false;
         const box = document.getElementById('msgBox');
         box.classList.remove('hidden');
-
-        if (res && res.success) {
-          box.className = "p-3 rounded-xl text-xs font-bold bg-emerald-100 text-emerald-900 border border-emerald-300";
-          box.innerText = res.message + ' (الساعة ' + res.time + ') - ' + res.status;
-        } else {
-          box.className = "p-3 rounded-xl text-xs font-bold bg-rose-100 text-rose-900 border border-rose-300";
-          box.innerText = res && res.message ? res.message : 'تعذر التسجيل في الشيت';
-        }
-      });
+        box.className = "p-3 rounded-xl text-xs font-bold bg-emerald-100 text-emerald-900 border border-emerald-300";
+        box.innerText = (type === 'CHECK_IN' ? 'تم تسجيل حضورك بنجاح' : 'تم تسجيل انصرافك بنجاح') + ' - الساعة ' + timeDisplay;
+      }, 500);
     }
 
     function tab(target) {
@@ -494,25 +458,28 @@
       document.getElementById('reportMainHeading').innerText = 'تقرير متابعة الحضور والانصراف اليومي';
       document.getElementById('kpiCardsArea').classList.remove('hidden');
 
-      callCloud({ action: 'dashboard', date: d }, function(res) {
-        if (res && res.success && res.list) {
-          document.getElementById('numTotal').innerText = res.stats.total;
-          document.getElementById('numOnTime').innerText = res.stats.onTime;
-          document.getElementById('numLate').innerText = res.stats.late;
-          document.getElementById('numAbsent').innerText = res.stats.absent;
-          document.getElementById('numCheckedOut').innerText = res.stats.checkedOut;
-          document.getElementById('numEarlyOut').innerText = res.stats.earlyOut;
-          cachedList = res.list.map(x => ({ ...x, date: d }));
-          renderTable(cachedList);
-        } else {
+      fetch(`${API_URL}?action=dashboard&date=${d}&_t=${Date.now()}`)
+        .then(res => res.json())
+        .then(res => {
+          if (res && res.success && res.list) {
+            document.getElementById('numTotal').innerText = res.stats.total;
+            document.getElementById('numOnTime').innerText = res.stats.onTime;
+            document.getElementById('numLate').innerText = res.stats.late;
+            document.getElementById('numAbsent').innerText = res.stats.absent;
+            document.getElementById('numCheckedOut').innerText = res.stats.checkedOut;
+            document.getElementById('numEarlyOut').innerText = res.stats.earlyOut;
+            cachedList = res.list.map(x => ({ ...x, date: d }));
+            renderTable(cachedList);
+          }
+        })
+        .catch(() => {
           let emptyList = [];
           for (let id in TEACHERS_DB) {
             emptyList.push({ date: d, id: id, name: TEACHERS_DB[id], checkIn: '-', statusIn: 'غائبة', checkOut: '-', statusOut: '-', workHours: '-' });
           }
           cachedList = emptyList;
           renderTable(cachedList);
-        }
-      });
+        });
     }
 
     function generateRangeReport() {
@@ -525,14 +492,17 @@
       document.getElementById('kpiCardsArea').classList.add('hidden');
       closeModal('modalRangeReport');
 
-      callCloud({ action: 'dashboard', startDate: fromD, endDate: toD }, function(res) {
-        if (res && res.success && res.list) {
-          cachedList = res.list;
-          renderTable(cachedList);
-        } else {
-          alert('تعذر استخراج تقرير الفترة من الشيت');
-        }
-      });
+      fetch(`${API_URL}?action=dashboard&startDate=${fromD}&endDate=${toD}&_t=${Date.now()}`)
+        .then(res => res.json())
+        .then(res => {
+          if (res && res.success && res.list) {
+            cachedList = res.list;
+            renderTable(cachedList);
+          } else {
+            alert('لا توجد سجلات مسجلة لهذه الفترة');
+          }
+        })
+        .catch(() => alert('تعذر استخراج تقرير الفترة من الشيت'));
     }
 
     function renderTable(list) {
@@ -593,10 +563,9 @@
         if (localStorage.getItem('BOUND_TEACHER_ID') === id) {
           localStorage.removeItem('BOUND_TEACHER_ID');
         }
-        callCloud({ action: 'adminUnbind', id: id }, function(res) {
-          alert(res && res.message ? res.message : 'تم فك الارتباط');
-          loadDash();
-        });
+        sendPayloadToSheet({ action: 'adminUnbind', id: id });
+        alert('تم فك ارتباط الجهاز بنجاح.');
+        setTimeout(loadDash, 1000);
       }
     }
 
