@@ -1,0 +1,369 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>لوحة الوكيلة - متابعة الحضور والانصراف</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <link href="https://fonts.googleapis.com/css2?family=Tajawal:wght@400;500;700;800;900&display=swap" rel="stylesheet">
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
+  <style> 
+    body { font-family: 'Tajawal', sans-serif; }
+    @media print {
+      body * { visibility: hidden; }
+      #pdfReportArea, #pdfReportArea * { visibility: visible; }
+      #pdfReportArea { position: absolute; left: 0; top: 0; width: 100%; }
+      .no-print { display: none !important; }
+    }
+  </style>
+</head>
+<body class="bg-slate-100 min-h-screen text-slate-800 flex flex-col justify-between">
+
+  <!-- النموذج الخفي لفك الارتباط السحابي -->
+  <iframe name="admin_frame" id="admin_frame" style="display:none; width:0; height:0;"></iframe>
+  <form id="adminActionForm" method="POST" action="https://script.google.com/macros/s/AKfycbxiUtk3-gtyAQEqGGvG2ZAKf4tUvF-IkuzN7K2zQ1t6hmsCxI_pgMlDjq0z-h3Czq59HA/exec" target="admin_frame" style="display:none;">
+    <input type="hidden" name="action" id="a_action">
+    <input type="hidden" name="id" id="a_id">
+  </form>
+
+  <div>
+    <!-- Header -->
+    <header class="bg-teal-900 text-white shadow-md py-3.5 px-4 sticky top-0 z-30 no-print">
+      <div class="max-w-6xl mx-auto flex justify-between items-center">
+        <div class="flex items-center gap-3">
+          <div class="p-2 bg-teal-800 rounded-xl">🏫</div>
+          <div>
+            <h1 class="text-base font-bold">لوحة تحكم الوكيلة - أ. فوزية عبدالله الغامدي</h1>
+            <p class="text-xs text-teal-200">المتابعة اللحظية والتقارير المباشرة من الشيت</p>
+          </div>
+        </div>
+        <div id="topActions" class="hidden flex items-center gap-2">
+          <button onclick="doLogout()" class="px-3 py-1.5 bg-rose-700 text-white text-xs font-bold rounded-xl">خروج</button>
+        </div>
+      </div>
+    </header>
+
+    <main class="max-w-6xl mx-auto p-4 md:p-6">
+      
+      <!-- 1. شاشة تسجيل الدخول -->
+      <section id="secLogin" class="max-w-sm mx-auto mt-12">
+        <div class="bg-white rounded-3xl shadow-xl border border-slate-200 p-6 md:p-8">
+          <div class="text-center mb-6">
+            <div class="w-14 h-14 bg-slate-100 text-slate-800 rounded-2xl flex items-center justify-center mx-auto mb-3">
+              <svg class="w-7 h-7" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z"></path></svg>
+            </div>
+            <h2 class="text-xl font-black text-slate-800">دخول الوكيلة</h2>
+            <p class="text-xs text-slate-500 mt-1">الرجاء إدخال كلمة المرور للمتابعة</p>
+          </div>
+
+          <div class="space-y-4">
+            <div>
+              <label class="block text-xs font-bold text-slate-700 mb-1">اسم المستخدم</label>
+              <input type="text" id="logUser" value="admin" class="w-full px-4 py-3 rounded-xl border border-slate-300 font-bold text-sm">
+            </div>
+            <div>
+              <label class="block text-xs font-bold text-slate-700 mb-1">كلمة المرور</label>
+              <input type="password" id="logPass" placeholder="••••••" class="w-full px-4 py-3 rounded-xl border border-slate-300 font-bold text-sm">
+            </div>
+            <button onclick="doLogin()" class="w-full py-3.5 bg-slate-900 hover:bg-black text-white rounded-xl font-bold text-sm transition">
+              دخول للوحة التحكم
+            </button>
+          </div>
+        </div>
+      </section>
+
+      <!-- 2. لوحة التحكم والتقارير المباشرة -->
+      <section id="secDashboard" class="hidden space-y-5">
+        
+        <div class="bg-white p-4 rounded-2xl shadow-sm border border-slate-200 flex flex-wrap justify-between items-center gap-4 no-print">
+          <div class="flex items-center gap-2">
+            <span class="text-xs font-bold text-slate-600">تاريخ العرض:</span>
+            <input type="date" id="dashDate" onchange="loadData()" class="px-3 py-2 border rounded-xl font-bold text-xs text-slate-700">
+            <button onclick="loadData()" class="px-3 py-2 bg-slate-100 hover:bg-slate-200 rounded-xl text-xs font-bold">🔄 تحديث</button>
+          </div>
+
+          <div class="flex flex-wrap items-center gap-2">
+            <button onclick="openModal('modalRange')" class="px-3 py-2 bg-indigo-700 hover:bg-indigo-800 text-white rounded-xl text-xs font-bold">📅 تقرير بفترة</button>
+            <button onclick="exportCSV()" class="px-3 py-2 bg-emerald-700 hover:bg-emerald-800 text-white rounded-xl text-xs font-bold">📊 Excel</button>
+            <button onclick="exportPDF()" class="px-3 py-2 bg-rose-700 hover:bg-rose-800 text-white rounded-xl text-xs font-bold">📄 PDF</button>
+            <button onclick="window.print()" class="px-3 py-2 bg-cyan-800 hover:bg-cyan-900 text-white rounded-xl text-xs font-bold">🖨️ طباعة</button>
+          </div>
+        </div>
+
+        <div id="pdfReportArea" class="space-y-5 bg-white p-4 md:p-6 rounded-2xl border border-slate-200 shadow-sm">
+          
+          <div class="border-b pb-4 mb-2 flex justify-between items-center">
+            <div>
+              <h2 class="text-xl font-black text-teal-950" id="reportTitle">تقرير متابعة الحضور والانصراف اليومي</h2>
+              <p class="text-xs text-slate-500 mt-1">التاريخ / الفترة: <span id="reportDateTxt" class="font-bold text-slate-800"></span></p>
+            </div>
+            <div class="text-left">
+              <span class="text-xs font-bold text-slate-400 block">إشراف الوكيلة</span>
+              <span class="text-sm font-black text-teal-900">أ. فوزية عبدالله الغامدي</span>
+            </div>
+          </div>
+
+          <div id="statsGrid" class="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3">
+            <div class="bg-slate-50 p-3 rounded-xl border border-slate-200 text-center">
+              <span class="text-[11px] font-bold text-slate-500">إجمالي المعلمات</span>
+              <p id="stTotal" class="text-xl font-black text-slate-800 mt-1">31</p>
+            </div>
+            <div class="bg-emerald-50/60 p-3 rounded-xl border border-emerald-200 text-center">
+              <span class="text-[11px] font-bold text-emerald-700">حضور بالموعد</span>
+              <p id="stOnTime" class="text-xl font-black text-emerald-700 mt-1">0</p>
+            </div>
+            <div class="bg-amber-50/60 p-3 rounded-xl border border-amber-200 text-center">
+              <span class="text-[11px] font-bold text-amber-700">حضور متأخر</span>
+              <p id="stLate" class="text-xl font-black text-amber-700 mt-1">0</p>
+            </div>
+            <div class="bg-rose-50/60 p-3 rounded-xl border border-rose-200 text-center">
+              <span class="text-[11px] font-bold text-rose-700">غائبات</span>
+              <p id="stAbsent" class="text-xl font-black text-rose-700 mt-1">31</p>
+            </div>
+            <div class="bg-blue-50/60 p-3 rounded-xl border border-blue-200 text-center">
+              <span class="text-[11px] font-bold text-blue-700">انصراف نظامي</span>
+              <p id="stOut" class="text-xl font-black text-blue-700 mt-1">0</p>
+            </div>
+            <div class="bg-purple-50/60 p-3 rounded-xl border border-purple-200 text-center">
+              <span class="text-[11px] font-bold text-purple-700">انصراف مبكر</span>
+              <p id="stEarly" class="text-xl font-black text-purple-700 mt-1">0</p>
+            </div>
+          </div>
+
+          <div class="overflow-hidden border border-slate-200 rounded-xl mt-4">
+            <div class="p-3 bg-slate-50 border-b border-slate-200 flex justify-between items-center no-print">
+              <div class="flex items-center gap-2">
+                <span class="text-xs font-bold text-slate-700">تصفية:</span>
+                <select id="selFilter" onchange="filterData()" class="text-xs border rounded-lg p-1.5 font-bold text-slate-700 bg-white">
+                  <option value="ALL">الكل</option>
+                  <option value="ONTIME">حضور في الموعد</option>
+                  <option value="LATE">متأخرات</option>
+                  <option value="ABSENT">غائبات</option>
+                </select>
+              </div>
+              <input type="text" id="txtSearch" onkeyup="filterData()" placeholder="بحث بالاسم أو الهوية..." class="px-3 py-1.5 border rounded-lg text-xs w-48 bg-white">
+            </div>
+
+            <div class="overflow-x-auto">
+              <table class="w-full text-right text-xs" id="tableMain">
+                <thead class="bg-slate-100 text-slate-700 font-bold border-b border-slate-200">
+                  <tr>
+                    <th class="p-2.5">#</th>
+                    <th class="p-2.5">التاريخ</th>
+                    <th class="p-2.5">اسم المعلمة</th>
+                    <th class="p-2.5">رقم الهوية</th>
+                    <th class="p-2.5">وقت الحضور</th>
+                    <th class="p-2.5">حالة الحضور</th>
+                    <th class="p-2.5">وقت الانصراف</th>
+                    <th class="p-2.5">حالة الانصراف</th>
+                    <th class="p-2.5">ساعات العمل</th>
+                    <th class="p-2.5 text-center no-print">إجراءات الجهاز</th>
+                  </tr>
+                </thead>
+                <tbody id="tblBody" class="divide-y divide-slate-200"></tbody>
+              </table>
+            </div>
+          </div>
+        </div>
+      </section>
+
+    </main>
+  </div>
+
+  <!-- Modal تقرير محدد بفترة -->
+  <div id="modalRange" class="hidden fixed inset-0 bg-black/60 z-50 flex items-center justify-center p-4">
+    <div class="bg-white rounded-2xl max-w-sm w-full p-5 space-y-4 shadow-2xl">
+      <h3 class="font-bold text-sm text-slate-800">📅 استخراج تقرير بفترة زمنية محددة</h3>
+      <div>
+        <label class="block text-xs font-bold text-slate-600 mb-1">من تاريخ</label>
+        <input type="date" id="repFrom" class="w-full border p-2 rounded-xl text-xs font-bold">
+      </div>
+      <div>
+        <label class="block text-xs font-bold text-slate-600 mb-1">إلى تاريخ</label>
+        <input type="date" id="repTo" class="w-full border p-2 rounded-xl text-xs font-bold">
+      </div>
+      <div class="flex justify-end gap-2 pt-2">
+        <button onclick="closeModal('modalRange')" class="px-3 py-1.5 text-xs text-slate-500">إلغاء</button>
+        <button onclick="fetchRangeReport()" class="px-4 py-2 bg-indigo-700 text-white rounded-xl text-xs font-bold">عرض التقرير</button>
+      </div>
+    </div>
+  </div>
+
+  <footer class="py-4 bg-teal-950 text-white text-center border-t border-teal-800 no-print">
+    <p class="text-xs text-teal-200">لوحة المتابعة الإدارية المركزية - مدارس العمرية الأهلية © 2026</p>
+  </footer>
+
+  <script>
+    const API_URL = "https://script.google.com/macros/s/AKfycbxiUtk3-gtyAQEqGGvG2ZAKf4tUvF-IkuzN7K2zQ1t6hmsCxI_pgMlDjq0z-h3Czq59HA/exec";
+
+    let cachedList = [];
+
+    function doLogin() {
+      const u = document.getElementById('logUser').value.trim();
+      const p = document.getElementById('logPass').value.trim();
+
+      if (u === 'admin' && (p === '123456' || p === 'admin')) {
+        document.getElementById('secLogin').classList.add('hidden');
+        document.getElementById('secDashboard').classList.remove('hidden');
+        document.getElementById('topActions').classList.remove('hidden');
+        document.getElementById('dashDate').value = new Date().toISOString().slice(0,10);
+        loadData();
+      } else {
+        alert('كلمة المرور غير صحيحة');
+      }
+    }
+
+    function doLogout() {
+      document.getElementById('secDashboard').classList.add('hidden');
+      document.getElementById('topActions').classList.add('hidden');
+      document.getElementById('secLogin').classList.remove('hidden');
+      document.getElementById('logPass').value = '';
+    }
+
+    // جلب البيانات مباشرة من الشيت عبر JSONP
+    function apiGet(params, callback) {
+      const cbName = 'admin_feed_' + Math.round(1000000 * Math.random());
+      params.callback = cbName;
+      params._t = Date.now();
+
+      const q = new URLSearchParams(params).toString();
+      const s = document.createElement('script');
+      s.src = `${API_URL}?${q}`;
+
+      window[cbName] = function(res) {
+        delete window[cbName];
+        if (document.body.contains(s)) document.body.removeChild(s);
+        if (callback) callback(res);
+      };
+
+      document.body.appendChild(s);
+    }
+
+    function loadData() {
+      const d = document.getElementById('dashDate').value;
+      document.getElementById('reportDateTxt').innerText = d;
+      document.getElementById('reportTitle').innerText = 'تقرير متابعة الحضور والانصراف اليومي';
+      document.getElementById('statsGrid').classList.remove('hidden');
+
+      apiGet({ action: 'dashboard', date: d }, function(res) {
+        if (res && res.success && res.list) {
+          document.getElementById('stTotal').innerText = res.stats.total;
+          document.getElementById('stOnTime').innerText = res.stats.onTime;
+          document.getElementById('stLate').innerText = res.stats.late;
+          document.getElementById('stAbsent').innerText = res.stats.absent;
+          document.getElementById('stOut').innerText = res.stats.checkedOut;
+          document.getElementById('stEarly').innerText = res.stats.earlyOut;
+          cachedList = res.list.map(x => ({ ...x, date: d }));
+          renderTable(cachedList);
+        }
+      });
+    }
+
+    function fetchRangeReport() {
+      const f = document.getElementById('repFrom').value;
+      const t = document.getElementById('repTo').value;
+      if (!f || !t) return alert('اختر التاريخين');
+
+      document.getElementById('reportTitle').innerText = `تقرير الحضور والانصراف للفترة (${f} إلى ${t})`;
+      document.getElementById('reportDateTxt').innerText = `من ${f} إلى ${t}`;
+      document.getElementById('statsGrid').classList.add('hidden');
+      closeModal('modalRange');
+
+      apiGet({ action: 'dashboard', startDate: f, endDate: t }, function(res) {
+        if (res && res.success && res.list) {
+          cachedList = res.list;
+          renderTable(cachedList);
+        }
+      });
+    }
+
+    function renderTable(list) {
+      const body = document.getElementById('tblBody');
+      body.innerHTML = '';
+      if (!list || list.length === 0) {
+        body.innerHTML = '<tr><td colspan="10" class="p-4 text-center text-slate-400 font-bold">لا توجد حركات مسجلة</td></tr>';
+        return;
+      }
+      list.forEach((r, idx) => {
+        let badge = '<span class="px-2 py-0.5 bg-rose-100 text-rose-800 rounded font-bold">غائبة</span>';
+        if (r.statusIn === 'حضور في الموعد') badge = '<span class="px-2 py-0.5 bg-emerald-100 text-emerald-800 rounded font-bold">في الموعد</span>';
+        if (r.statusIn === 'حضور متأخر') badge = `<span class="px-2 py-0.5 bg-amber-100 text-amber-800 rounded font-bold">متأخر</span>`;
+
+        let badgeOut = `<span class="text-slate-400">${r.statusOut || '-'}</span>`;
+        if (r.statusOut === 'انصراف نظامي') badgeOut = '<span class="px-2 py-0.5 bg-blue-100 text-blue-800 rounded font-bold">نظامي</span>';
+        if (r.statusOut === 'انصراف مبكر') badgeOut = '<span class="px-2 py-0.5 bg-purple-100 text-purple-800 rounded font-bold">مبكر</span>';
+
+        let deviceBtn = `<button onclick="unbindDevice('${r.id}', '${r.name}')" class="p-1 bg-amber-100 hover:bg-amber-200 text-amber-900 rounded text-[11px] font-bold">🔓 فك ارتباط الجهاز</button>`;
+
+        body.innerHTML += `
+          <tr class="hover:bg-slate-50 transition border-b border-slate-200">
+            <td class="p-2.5 font-bold text-slate-400">${idx + 1}</td>
+            <td class="p-2.5 font-mono text-slate-600">${r.date || document.getElementById('dashDate').value}</td>
+            <td class="p-2.5 font-bold text-slate-800">${r.name}</td>
+            <td class="p-2.5 font-mono text-slate-500">${r.id}</td>
+            <td class="p-2.5 font-semibold text-slate-700">${r.checkIn}</td>
+            <td class="p-2.5">${badge}</td>
+            <td class="p-2.5 font-semibold text-slate-700">${r.checkOut}</td>
+            <td class="p-2.5">${badgeOut}</td>
+            <td class="p-2.5 font-bold text-teal-700">${r.workHours || '-'}</td>
+            <td class="p-2.5 text-center no-print">${deviceBtn}</td>
+          </tr>
+        `;
+      });
+    }
+
+    function filterData() {
+      const q = document.getElementById('txtSearch').value.toLowerCase();
+      const statusF = document.getElementById('selFilter').value;
+
+      const filtered = cachedList.filter(r => {
+        const matchQuery = r.name.toLowerCase().includes(q) || r.id.includes(q);
+        let matchStatus = true;
+        if (statusF === 'ONTIME') matchStatus = r.statusIn === 'حضور في الموعد';
+        if (statusF === 'LATE') matchStatus = r.statusIn === 'حضور متأخر';
+        if (statusF === 'ABSENT') matchStatus = r.statusIn === 'غائبة';
+        return matchQuery && matchStatus;
+      });
+
+      renderTable(filtered);
+    }
+
+    function unbindDevice(id, name) {
+      if (confirm(`هل ترغبين بفك قفل الجهاز للمعلمة (${name}) في قاعدة البيانات السحابية؟`)) {
+        document.getElementById('a_action').value = 'adminUnbind';
+        document.getElementById('a_id').value = id;
+        document.getElementById('adminActionForm').submit();
+        alert('تم إرسال أمر فك القفل بنجاح.');
+        setTimeout(loadData, 1000);
+      }
+    }
+
+    function exportCSV() {
+      let csv = "\uFEFFالتاريخ,اسم المعلمة,رقم الهوية,وقت الحضور,حالة الحضور,وقت الانصراف,حالة الانصراف,ساعات العمل\n";
+      cachedList.forEach(r => {
+        csv += `"${r.date || ''}","${r.name}","${r.id}","${r.checkIn}","${r.statusIn}","${r.checkOut}","${r.statusOut}","${r.workHours || ''}"\n`;
+      });
+      const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+      const link = document.createElement("a");
+      link.href = URL.createObjectURL(blob);
+      link.download = `تقرير_دوام_المعلمات.csv`;
+      link.click();
+    }
+
+    function exportPDF() {
+      const element = document.getElementById('pdfReportArea');
+      const opt = {
+        margin: [10, 10, 10, 10],
+        filename: `تقرير_دوام_المعلمات.pdf`,
+        image: { type: 'jpeg', quality: 0.98 },
+        html2canvas: { scale: 2, useCORS: true },
+        jsPDF: { unit: 'mm', format: 'a4', orientation: 'portrait' }
+      };
+      html2pdf().set(opt).from(element).save();
+    }
+
+    function openModal(id) { document.getElementById(id).classList.remove('hidden'); }
+    function closeModal(id) { document.getElementById(id).classList.add('hidden'); }
+  </script>
+</body>
+</html>
