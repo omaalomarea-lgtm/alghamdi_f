@@ -19,9 +19,6 @@
 </head>
 <body class="bg-slate-100 min-h-screen text-slate-800 flex flex-col justify-between">
 
-  <!-- إطار خفي احتياطي متوافق 100% مع كافة المتصفحات -->
-  <iframe name="sync_frame" id="sync_frame" style="display:none; width:0; height:0; border:0;"></iframe>
-
   <div>
     <!-- Header -->
     <header class="bg-teal-900 text-white shadow-md sticky top-0 z-30 no-print">
@@ -65,7 +62,7 @@
             </button>
             <div class="p-3 bg-amber-50 border border-amber-200 rounded-xl text-center">
               <p class="text-[11px] text-amber-800 font-semibold leading-relaxed">
-                🔒 تنبيه: سيتم قفل هذا الجوال على هويتك بقاعدة البيانات السحابية لمنع تحضير معلمات أخريات.
+                🔒 تنبيه: سيتم قفل هذا الجوال على هويتك بقاعدة البيانات لمنع تحضير معلمات أخريات.
               </p>
             </div>
           </div>
@@ -136,7 +133,7 @@
 
           <div class="flex flex-wrap items-center gap-2">
             <input type="date" id="qDate" onchange="loadDash()" class="px-3 py-2 border rounded-xl font-bold text-xs text-slate-700">
-            <button onclick="loadDash()" class="px-3 py-2 bg-slate-100 hover:bg-slate-200 rounded-xl text-xs font-bold text-slate-700">🔄 اليومي</button>
+            <button onclick="loadDash()" class="px-3 py-2 bg-slate-100 hover:bg-slate-200 rounded-xl text-xs font-bold text-slate-700">🔄 تحديث</button>
             <button onclick="openModal('modalRangeReport')" class="px-3 py-2 bg-indigo-700 hover:bg-indigo-800 text-white rounded-xl text-xs font-bold">📅 تقرير بفترة</button>
             <button onclick="exportCSV()" class="px-3 py-2 bg-emerald-700 hover:bg-emerald-800 text-white rounded-xl text-xs font-bold">📊 Excel</button>
             <button onclick="exportPDF()" class="px-3 py-2 bg-rose-700 hover:bg-rose-800 text-white rounded-xl text-xs font-bold">📄 PDF</button>
@@ -295,10 +292,10 @@
     };
 
     function getDeviceUUID() {
-      let d = localStorage.getItem('DEV_UUID_V5');
+      let d = localStorage.getItem('DEV_UUID_V6');
       if (!d) {
         d = 'DEV_' + Math.random().toString(36).substring(2, 10) + '_' + Date.now();
-        localStorage.setItem('DEV_UUID_V5', d);
+        localStorage.setItem('DEV_UUID_V6', d);
       }
       return d;
     }
@@ -307,31 +304,44 @@
     let isAdmin = false;
     let cachedList = [];
 
-    // محرك إرسال هجين مباشر يكتب بالسيرفر دون حظر
-    function syncPush(params, callback) {
+    // محرك اتصال سحابي متوافق مع كافة متصفحات الهواتف
+    function callCloud(params, callback) {
+      const cbName = 'jsonp_res_' + Math.round(1000000 * Math.random());
+      params.callback = cbName;
       params._ts = Date.now();
+
       const q = new URLSearchParams(params).toString();
-      const url = `${API_URL}?${q}`;
-
-      // إرسال عبر Iframe خفي
-      const frame = document.getElementById('sync_frame');
-      if (frame) frame.src = url;
-
-      // إرسال عبر Script Tag
-      const cbName = 'sync_cb_' + Math.round(1000000 * Math.random());
       const script = document.createElement('script');
-      script.src = `${url}&callback=${cbName}`;
+      script.src = `${API_URL}?${q}`;
+
+      let completed = false;
+      const timeout = setTimeout(() => {
+        if (!completed) {
+          completed = true;
+          delete window[cbName];
+          if (document.body.contains(script)) document.body.removeChild(script);
+          if (callback) callback({ success: false, message: 'انتهت مهلة الرد' });
+        }
+      }, 15000);
 
       window[cbName] = function(res) {
-        delete window[cbName];
-        if (document.body.contains(script)) document.body.removeChild(script);
-        if (callback) callback(res);
+        if (!completed) {
+          completed = true;
+          clearTimeout(timeout);
+          delete window[cbName];
+          if (document.body.contains(script)) document.body.removeChild(script);
+          if (callback) callback(res);
+        }
       };
 
       script.onerror = function() {
-        delete window[cbName];
-        if (document.body.contains(script)) document.body.removeChild(script);
-        if (callback) callback({ success: true });
+        if (!completed) {
+          completed = true;
+          clearTimeout(timeout);
+          delete window[cbName];
+          if (document.body.contains(script)) document.body.removeChild(script);
+          if (callback) callback({ success: false, message: 'تعذر الاتصال بالسيرفر' });
+        }
       };
 
       document.body.appendChild(script);
@@ -349,10 +359,14 @@
       if (boundId && TEACHERS_DB[boundId]) {
         curTeacher = { nationalId: boundId, name: TEACHERS_DB[boundId] };
         showTeacherDashboard();
+        callCloud({ action: 'verifyBind', id: boundId, dev: getDeviceUUID() }, function(res) {
+          if (res && res.success && res.status) {
+            updateTeacherStatusUI(res.status);
+          }
+        });
       }
     });
 
-    // التعرف والربط الفوري الحاسم
     function bindAndVerify() {
       const id = document.getElementById('inputId').value.trim();
       if (!id) return alert('الرجاء إدخال رقم الهوية');
@@ -360,12 +374,23 @@
       const name = TEACHERS_DB[id];
       if (!name) return alert('رقم الهوية غير مسجل في النظام');
 
-      localStorage.setItem('BOUND_TEACHER_ID', id);
-      curTeacher = { nationalId: id, name: name };
-      showTeacherDashboard();
+      const btn = document.getElementById('btnVerify');
+      btn.innerText = 'جاري التوثيق في السيرفر...';
+      btn.disabled = true;
 
-      // مزامنة الربط مع قاعدة البيانات السحابية
-      syncPush({ action: 'verifyBind', id: id, dev: getDeviceUUID() });
+      callCloud({ action: 'verifyBind', id: id, dev: getDeviceUUID() }, function(res) {
+        btn.innerText = 'ربط الجهاز وتسجيل';
+        btn.disabled = false;
+
+        if (res && res.success) {
+          localStorage.setItem('BOUND_TEACHER_ID', id);
+          curTeacher = { nationalId: id, name: name };
+          showTeacherDashboard();
+          if (res.status) updateTeacherStatusUI(res.status);
+        } else {
+          alert(res && res.message ? res.message : 'تعذر إتمام عملية الربط بالسيرفر');
+        }
+      });
     }
 
     function showTeacherDashboard() {
@@ -374,50 +399,49 @@
       document.getElementById('teacherSubtitle').innerText = 'تم ربط هذا الجهاز بحسابك';
       document.getElementById('tName').innerText = curTeacher.name;
       document.getElementById('tId').innerText = 'السجل المدني: ' + curTeacher.nationalId;
+    }
 
+    function updateTeacherStatusUI(status) {
       const box = document.getElementById('msgBox');
       box.classList.remove('hidden');
-      box.className = "p-3 rounded-xl text-xs font-bold bg-amber-50 text-amber-800 border border-amber-200";
-      box.innerText = 'جاهز لتسجيل الحضور / الانصراف اليوم';
+      if (status.checkedIn && status.checkedOut) {
+        box.className = "p-3 rounded-xl text-xs font-bold bg-blue-50 text-blue-800 border border-blue-200";
+        box.innerText = `حضورك مسجل (${status.checkInTime}) وانصرافك (${status.checkOutTime})`;
+      } else if (status.checkedIn) {
+        box.className = "p-3 rounded-xl text-xs font-bold bg-emerald-50 text-emerald-800 border border-emerald-200";
+        box.innerText = `تم تسجيل حضورك اليوم الساعة (${status.checkInTime})`;
+      } else {
+        box.className = "p-3 rounded-xl text-xs font-bold bg-amber-50 text-amber-800 border border-amber-200";
+        box.innerText = 'جاهز لتسجيل الحضور اليوم';
+      }
     }
 
     function doRecord(type) {
       if (!curTeacher) return;
       const btn = type === 'CHECK_IN' ? document.getElementById('btnIn') : document.getElementById('btnOut');
       const oldTxt = btn.innerText;
-      btn.innerText = 'جاري التسجيل في الشيت...';
+      btn.innerText = 'جاري الحفظ في الشيت...';
       btn.disabled = true;
 
-      const now = new Date();
-      const timeStr = now.toLocaleTimeString('ar-SA', { hour: '2-digit', minute: '2-digit' });
-      const todayDate = now.toISOString().slice(0,10);
-
-      // إرسال مباشر يكتب في Google Sheet
-      syncPush({
+      callCloud({
         action: 'record',
         id: curTeacher.nationalId,
         type: type,
-        time: timeStr,
-        date: todayDate,
         dev: getDeviceUUID()
       }, function(res) {
         btn.innerText = oldTxt;
         btn.disabled = false;
         const box = document.getElementById('msgBox');
         box.classList.remove('hidden');
-        box.className = "p-3 rounded-xl text-xs font-bold bg-emerald-100 text-emerald-900 border border-emerald-300";
-        box.innerText = (type === 'CHECK_IN' ? 'تم تسجيل حضورك بنجاح' : 'تم تسجيل انصرافك بنجاح') + ' - الساعة ' + timeStr;
-      });
 
-      // إظهار الاستجابة الفورية
-      setTimeout(() => {
-        btn.innerText = oldTxt;
-        btn.disabled = false;
-        const box = document.getElementById('msgBox');
-        box.classList.remove('hidden');
-        box.className = "p-3 rounded-xl text-xs font-bold bg-emerald-100 text-emerald-900 border border-emerald-300";
-        box.innerText = (type === 'CHECK_IN' ? 'تم تسجيل حضورك بنجاح' : 'تم تسجيل انصرافك بنجاح') + ' - الساعة ' + timeStr;
-      }, 700);
+        if (res && res.success) {
+          box.className = "p-3 rounded-xl text-xs font-bold bg-emerald-100 text-emerald-900 border border-emerald-300";
+          box.innerText = res.message + ' (الساعة ' + res.time + ') - ' + res.status;
+        } else {
+          box.className = "p-3 rounded-xl text-xs font-bold bg-rose-100 text-rose-900 border border-rose-300";
+          box.innerText = res && res.message ? res.message : 'تعذر التسجيل في الشيت';
+        }
+      });
     }
 
     function tab(target) {
@@ -462,7 +486,7 @@
       tab('teacher');
     }
 
-    // جلب ومزامنة فورية من الشيت
+    // جلب ومزامنة السجلات من Google Sheet
     function loadDash() {
       const d = document.getElementById('qDate').value || new Date().toISOString().slice(0,10);
       document.getElementById('qDate').value = d;
@@ -470,8 +494,8 @@
       document.getElementById('reportMainHeading').innerText = 'تقرير متابعة الحضور والانصراف اليومي';
       document.getElementById('kpiCardsArea').classList.remove('hidden');
 
-      syncPush({ action: 'dashboard', date: d }, function(res) {
-        if (res && res.list && res.list.length > 0) {
+      callCloud({ action: 'dashboard', date: d }, function(res) {
+        if (res && res.success && res.list) {
           document.getElementById('numTotal').innerText = res.stats.total;
           document.getElementById('numOnTime').innerText = res.stats.onTime;
           document.getElementById('numLate').innerText = res.stats.late;
@@ -501,10 +525,12 @@
       document.getElementById('kpiCardsArea').classList.add('hidden');
       closeModal('modalRangeReport');
 
-      syncPush({ action: 'dashboard', startDate: fromD, endDate: toD }, function(res) {
-        if (res && res.list) {
+      callCloud({ action: 'dashboard', startDate: fromD, endDate: toD }, function(res) {
+        if (res && res.success && res.list) {
           cachedList = res.list;
           renderTable(cachedList);
+        } else {
+          alert('تعذر استخراج تقرير الفترة من الشيت');
         }
       });
     }
@@ -567,8 +593,8 @@
         if (localStorage.getItem('BOUND_TEACHER_ID') === id) {
           localStorage.removeItem('BOUND_TEACHER_ID');
         }
-        syncPush({ action: 'adminUnbind', id: id }, function() {
-          alert('تم فك ارتباط الجهاز بنجاح.');
+        callCloud({ action: 'adminUnbind', id: id }, function(res) {
+          alert(res && res.message ? res.message : 'تم فك الارتباط');
           loadDash();
         });
       }
