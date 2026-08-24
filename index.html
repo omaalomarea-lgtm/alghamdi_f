@@ -19,8 +19,14 @@
 </head>
 <body class="bg-slate-100 min-h-screen text-slate-800 flex flex-col justify-between">
 
-  <!-- إطار خفي احتياطي دائم -->
-  <iframe name="cloud_frame" id="cloud_frame" style="display:none; width:0; height:0; border:0;"></iframe>
+  <!-- إطار العمل السحابي المضمون لنقل البيانات من الجوال إلى الشيت -->
+  <iframe name="post_target_frame" id="post_target_frame" style="display:none; width:0; height:0; border:0;"></iframe>
+  <form id="directPostForm" method="POST" action="https://script.google.com/macros/s/AKfycbxiUtk3-gtyAQEqGGvG2ZAKf4tUvF-IkuzN7K2zQ1t6hmsCxI_pgMlDjq0z-h3Czq59HA/exec" target="post_target_frame" style="display:none;">
+    <input type="hidden" name="action" id="p_action">
+    <input type="hidden" name="id" id="p_id">
+    <input type="hidden" name="type" id="p_type">
+    <input type="hidden" name="dev" id="p_dev">
+  </form>
 
   <div>
     <!-- Header -->
@@ -130,13 +136,13 @@
             <div class="p-2.5 bg-teal-50 rounded-xl text-teal-800 font-bold">🏫</div>
             <div>
               <h3 class="font-bold text-sm md:text-base text-slate-800" id="admTitle">مرحباً بك، أ. فوزية عبدالله الغامدي</h3>
-              <p class="text-xs text-slate-500">لوحة المتابعة اللحظية وإدارة الحضور والانصراف</p>
+              <p class="text-xs text-slate-500">لوحة المتابعة اللحظية المركزية (مرتبطة بالسيرفر مباشرة)</p>
             </div>
           </div>
 
           <div class="flex flex-wrap items-center gap-2">
             <input type="date" id="qDate" onchange="loadDash()" class="px-3 py-2 border rounded-xl font-bold text-xs text-slate-700">
-            <button onclick="loadDash()" class="px-3 py-2 bg-slate-100 hover:bg-slate-200 rounded-xl text-xs font-bold text-slate-700">🔄 تحديث</button>
+            <button onclick="loadDash()" class="px-3 py-2 bg-slate-100 hover:bg-slate-200 rounded-xl text-xs font-bold text-slate-700">🔄 تحديث البيانات</button>
             <button onclick="openModal('modalRangeReport')" class="px-3 py-2 bg-indigo-700 hover:bg-indigo-800 text-white rounded-xl text-xs font-bold">📅 تقرير بفترة</button>
             <button onclick="exportCSV()" class="px-3 py-2 bg-emerald-700 hover:bg-emerald-800 text-white rounded-xl text-xs font-bold">📊 Excel</button>
             <button onclick="exportPDF()" class="px-3 py-2 bg-rose-700 hover:bg-rose-800 text-white rounded-xl text-xs font-bold">📄 PDF</button>
@@ -295,10 +301,10 @@
     };
 
     function getDeviceUUID() {
-      let d = localStorage.getItem('DEV_UUID_V7');
+      let d = localStorage.getItem('DEV_UUID_V8');
       if (!d) {
         d = 'DEV_' + Math.random().toString(36).substring(2, 10) + '_' + Date.now();
-        localStorage.setItem('DEV_UUID_V7', d);
+        localStorage.setItem('DEV_UUID_V8', d);
       }
       return d;
     }
@@ -307,29 +313,56 @@
     let isAdmin = false;
     let cachedList = [];
 
-    // محرك الإرسال المباشر الصامت المضمون 100% للجوال
-    function sendPayloadToSheet(params) {
-      params._ts = Date.now();
-      const bodyData = new URLSearchParams(params);
+    // محرك إرسال مباشر موثوق عبر النموذج والإطار الخفي
+    function sendPayload(action, id, type) {
+      document.getElementById('p_action').value = action;
+      document.getElementById('p_id').value = id || '';
+      document.getElementById('p_type').value = type || '';
+      document.getElementById('p_dev').value = getDeviceUUID();
+      document.getElementById('directPostForm').submit();
+    }
 
-      // 1. إرسال عبر fetch no-cors المضمون في Safari
-      fetch(API_URL, {
-        method: 'POST',
-        mode: 'no-cors',
-        headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
-        body: bodyData
-      }).catch(() => {});
+    // جلب البيانات من السيرفر مباشرة عبر JSONP
+    function fetchFromServer(params, callback) {
+      const cbName = 'jsonp_feed_' + Math.round(1000000 * Math.random());
+      params.callback = cbName;
+      params._t = Date.now();
 
-      // 2. إرسال عبر sendBeacon للجوال
-      if (navigator.sendBeacon) {
-        navigator.sendBeacon(API_URL, bodyData);
-      }
+      const q = new URLSearchParams(params).toString();
+      const s = document.createElement('script');
+      s.src = `${API_URL}?${q}`;
 
-      // 3. إرسال عبر Iframe خفي
-      const frame = document.getElementById('cloud_frame');
-      if (frame) {
-        frame.src = `${API_URL}?${bodyData.toString()}`;
-      }
+      let done = false;
+      const timer = setTimeout(() => {
+        if (!done) {
+          done = true;
+          delete window[cbName];
+          if (document.body.contains(s)) document.body.removeChild(s);
+          if (callback) callback(null);
+        }
+      }, 12000);
+
+      window[cbName] = function(res) {
+        if (!done) {
+          done = true;
+          clearTimeout(timer);
+          delete window[cbName];
+          if (document.body.contains(s)) document.body.removeChild(s);
+          if (callback) callback(res);
+        }
+      };
+
+      s.onerror = function() {
+        if (!done) {
+          done = true;
+          clearTimeout(timer);
+          delete window[cbName];
+          if (document.body.contains(s)) document.body.removeChild(s);
+          if (callback) callback(null);
+        }
+      };
+
+      document.body.appendChild(s);
     }
 
     function liveTime() {
@@ -358,12 +391,8 @@
       curTeacher = { nationalId: id, name: name };
       showTeacherDashboard();
 
-      // إرسال الربط للسيرفر
-      sendPayloadToSheet({
-        action: 'verifyBind',
-        id: id,
-        dev: getDeviceUUID()
-      });
+      // إرسال التوثيق للسيرفر والشيت
+      sendPayload('verify', id, '');
     }
 
     function showTeacherDashboard() {
@@ -383,21 +412,15 @@
       if (!curTeacher) return;
       const btn = type === 'CHECK_IN' ? document.getElementById('btnIn') : document.getElementById('btnOut');
       const oldTxt = btn.innerText;
-      btn.innerText = 'جاري الحفظ بالسيرفر...';
+      btn.innerText = 'جاري الحفظ في الشيت...';
       btn.disabled = true;
 
       const now = new Date();
       const timeDisplay = now.toLocaleTimeString('ar-SA', { hour: '2-digit', minute: '2-digit' });
 
-      // إرسال يكتب فوراً في Google Sheet
-      sendPayloadToSheet({
-        action: 'record',
-        id: curTeacher.nationalId,
-        type: type,
-        dev: getDeviceUUID()
-      });
+      // إرسال فوري يكتب مباشرة في Google Sheet
+      sendPayload('record', curTeacher.nationalId, type);
 
-      // إظهار النجاح والتأكيد فوراً للمعلمة
       setTimeout(() => {
         btn.innerText = oldTxt;
         btn.disabled = false;
@@ -405,7 +428,7 @@
         box.classList.remove('hidden');
         box.className = "p-3 rounded-xl text-xs font-bold bg-emerald-100 text-emerald-900 border border-emerald-300";
         box.innerText = (type === 'CHECK_IN' ? 'تم تسجيل حضورك بنجاح' : 'تم تسجيل انصرافك بنجاح') + ' - الساعة ' + timeDisplay;
-      }, 500);
+      }, 600);
     }
 
     function tab(target) {
@@ -450,7 +473,7 @@
       tab('teacher');
     }
 
-    // جلب ومزامنة السجلات من Google Sheet
+    // قراءة البيانات المركزية الحية من Google Sheet
     function loadDash() {
       const d = document.getElementById('qDate').value || new Date().toISOString().slice(0,10);
       document.getElementById('qDate').value = d;
@@ -458,28 +481,26 @@
       document.getElementById('reportMainHeading').innerText = 'تقرير متابعة الحضور والانصراف اليومي';
       document.getElementById('kpiCardsArea').classList.remove('hidden');
 
-      fetch(`${API_URL}?action=dashboard&date=${d}&_t=${Date.now()}`)
-        .then(res => res.json())
-        .then(res => {
-          if (res && res.success && res.list) {
-            document.getElementById('numTotal').innerText = res.stats.total;
-            document.getElementById('numOnTime').innerText = res.stats.onTime;
-            document.getElementById('numLate').innerText = res.stats.late;
-            document.getElementById('numAbsent').innerText = res.stats.absent;
-            document.getElementById('numCheckedOut').innerText = res.stats.checkedOut;
-            document.getElementById('numEarlyOut').innerText = res.stats.earlyOut;
-            cachedList = res.list.map(x => ({ ...x, date: d }));
-            renderTable(cachedList);
-          }
-        })
-        .catch(() => {
+      fetchFromServer({ action: 'dashboard', date: d }, function(res) {
+        if (res && res.success && res.list) {
+          document.getElementById('numTotal').innerText = res.stats.total;
+          document.getElementById('numOnTime').innerText = res.stats.onTime;
+          document.getElementById('numLate').innerText = res.stats.late;
+          document.getElementById('numAbsent').innerText = res.stats.absent;
+          document.getElementById('numCheckedOut').innerText = res.stats.checkedOut;
+          document.getElementById('numEarlyOut').innerText = res.stats.earlyOut;
+          cachedList = res.list.map(x => ({ ...x, date: d }));
+          renderTable(cachedList);
+        } else {
+          // عرض القائمة المبدئية
           let emptyList = [];
           for (let id in TEACHERS_DB) {
             emptyList.push({ date: d, id: id, name: TEACHERS_DB[id], checkIn: '-', statusIn: 'غائبة', checkOut: '-', statusOut: '-', workHours: '-' });
           }
           cachedList = emptyList;
           renderTable(cachedList);
-        });
+        }
+      });
     }
 
     function generateRangeReport() {
@@ -492,17 +513,14 @@
       document.getElementById('kpiCardsArea').classList.add('hidden');
       closeModal('modalRangeReport');
 
-      fetch(`${API_URL}?action=dashboard&startDate=${fromD}&endDate=${toD}&_t=${Date.now()}`)
-        .then(res => res.json())
-        .then(res => {
-          if (res && res.success && res.list) {
-            cachedList = res.list;
-            renderTable(cachedList);
-          } else {
-            alert('لا توجد سجلات مسجلة لهذه الفترة');
-          }
-        })
-        .catch(() => alert('تعذر استخراج تقرير الفترة من الشيت'));
+      fetchFromServer({ action: 'dashboard', startDate: fromD, endDate: toD }, function(res) {
+        if (res && res.success && res.list) {
+          cachedList = res.list;
+          renderTable(cachedList);
+        } else {
+          alert('لا توجد سجلات مسجلة لهذه الفترة');
+        }
+      });
     }
 
     function renderTable(list) {
@@ -563,7 +581,7 @@
         if (localStorage.getItem('BOUND_TEACHER_ID') === id) {
           localStorage.removeItem('BOUND_TEACHER_ID');
         }
-        sendPayloadToSheet({ action: 'adminUnbind', id: id });
+        sendPayload('adminUnbind', id, '');
         alert('تم فك ارتباط الجهاز بنجاح.');
         setTimeout(loadDash, 1000);
       }
